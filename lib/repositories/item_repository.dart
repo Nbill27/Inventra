@@ -96,12 +96,15 @@ class ItemRepository {
   }
 
   Map<String, Object?> _validatedValues(Item item) => {
-        'name': requireText(item.name, field: 'Nama barang'),
+        'no_urut': optionalText(item.noUrut),
+        'name': requireText(item.name, field: 'Nama alat ukur'),
         'code': optionalText(item.code),
-        'category': optionalText(item.category),
+        'range_text': optionalText(item.range),
+        'brand': optionalText(item.brand),
+        'pic': optionalText(item.pic),
+        'status': optionalText(item.status),
         'stock_total': requireNonNegativeInt(item.stockTotal, field: 'Stok total'),
         'stock_available': requireNonNegativeInt(item.stockTotal, field: 'Stok total'),
-        'note': optionalText(item.note),
       };
 
   /// FR-B8: changing the total shifts availability by the same delta, so units
@@ -111,7 +114,7 @@ class ItemRepository {
     if (id == null) {
       throw const ValidationException('Barang belum tersimpan.');
     }
-    final name = requireText(item.name, field: 'Nama barang');
+    final name = requireText(item.name, field: 'Nama alat ukur');
     final stockTotal = requireNonNegativeInt(item.stockTotal, field: 'Stok total');
 
     final db = await _helper.database;
@@ -131,12 +134,15 @@ class ItemRepository {
       await txn.update(
         _table,
         {
+          'no_urut': optionalText(item.noUrut),
           'name': name,
           'code': optionalText(item.code),
-          'category': optionalText(item.category),
+          'range_text': optionalText(item.range),
+          'brand': optionalText(item.brand),
+          'pic': optionalText(item.pic),
+          'status': optionalText(item.status),
           'stock_total': stockTotal,
           'stock_available': available,
-          'note': optionalText(item.note),
         },
         where: 'id = ?',
         whereArgs: [id],

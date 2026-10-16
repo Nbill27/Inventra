@@ -59,7 +59,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
         title: const Text('Barang'),
         actions: [
           IconButton(
-            tooltip: 'Impor dari CSV',
+            tooltip: 'Impor dari berkas',
             onPressed: () => _open(const ItemImportScreen()),
             icon: const Icon(Icons.upload_file),
           ),
@@ -129,11 +129,12 @@ class _ItemListScreenState extends State<ItemListScreen> {
       return EmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Belum ada barang',
-        message: 'Tambahkan barang satu per satu, atau impor daftar barang dari file CSV.',
+        message:
+            'Tambahkan barang satu per satu, atau impor dari file Excel/CSV.',
         action: FilledButton.icon(
           onPressed: () => _open(const ItemImportScreen()),
           icon: const Icon(Icons.upload_file),
-          label: const Text('Impor dari CSV'),
+          label: const Text('Impor dari berkas'),
         ),
       );
     }
@@ -158,7 +159,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
   String _subtitle(Item item) => [
         if (item.code != null) 'Kode ${item.code}',
-        if (item.category != null) item.category!,
+        if (item.brand != null) item.brand!,
+        if (item.status != null) item.status!,
         'Tersedia ${item.stockAvailable} dari ${item.stockTotal}',
       ].join(' - ');
 

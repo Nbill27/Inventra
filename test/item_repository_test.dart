@@ -85,19 +85,25 @@ void main() {
     final current = await items.getById(id);
     await items.update(
       current.copyWith(
-        name: 'Proyektor Epson',
-        code: 'PJ-02',
-        category: 'Elektronik',
-        note: 'Rak A',
+        noUrut: '7',
+        name: 'Jangka Sorong',
+        code: 'JS-02',
+        range: '150 mm',
+        brand: 'Mitutoyo',
+        pic: 'QC',
+        status: 'OK',
         stockTotal: 6,
       ),
     );
 
     final updated = await items.getById(id);
-    expect(updated.name, 'Proyektor Epson');
-    expect(updated.code, 'PJ-02');
-    expect(updated.category, 'Elektronik');
-    expect(updated.note, 'Rak A');
+    expect(updated.noUrut, '7');
+    expect(updated.name, 'Jangka Sorong');
+    expect(updated.code, 'JS-02');
+    expect(updated.range, '150 mm');
+    expect(updated.brand, 'Mitutoyo');
+    expect(updated.pic, 'QC');
+    expect(updated.status, 'OK');
     expect(updated.stockAvailable, 6);
   });
 

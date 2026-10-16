@@ -1,109 +1,148 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peminjaman_barang/core/exceptions.dart';
-import 'package:peminjaman_barang/models/item_import.dart';
 import 'package:peminjaman_barang/services/csv_parser.dart';
 import 'package:peminjaman_barang/services/item_importer.dart';
 
 void main() {
   const importer = ItemImporter();
 
+  /// The header of the mentor's "Daftar Alat Ukur" file.
   const table = CsvTable(
-    header: ['nama', 'kode', 'kategori', 'stok', 'catatan'],
+    header: [
+      'NO',
+      'FOTO',
+      'NAMA ALAT UKUR',
+      'KODE ALAT UKUR',
+      'RANGE',
+      'BRAND',
+      'PIC',
+      'STATUS',
+    ],
     rows: [
-      ['Proyektor', 'PRJ-1', 'Elektronik', '5', 'unit A'],
-      ['Kabel HDMI', '', '  ', '2', ''],
+      ['1', '', 'Digital Caliper', 'RAB/01/01', '300 mm', 'Mitutoyo', 'QC', 'OK'],
+      [
+        '2',
+        '',
+        'Bevel Protector\n(121432)',
+        'RAB/02/001',
+        '180O',
+        'Mitutoyo',
+        'QC',
+        'Not Good / Rusak',
+      ],
     ],
   );
 
-  const mapping = {
-    ItemField.name: 0,
-    ItemField.code: 1,
-    ItemField.category: 2,
-    ItemField.stockTotal: 3,
-    ItemField.note: 4,
-  };
-
-  test('turns rows into drafts, trimming text and blanking empty fields', () {
-    final plan = importer.plan(table: table, mapping: mapping);
+  test('maps the master file columns automatically', () {
+    final plan = importer.plan(table: table, stockPerRow: 1);
 
     expect(plan.issues, isEmpty);
     expect(plan.drafts.length, 2);
 
     final first = plan.drafts.first;
     expect(first.rowNumber, 1);
-    expect(first.name, 'Proyektor');
-    expect(first.code, 'PRJ-1');
-    expect(first.category, 'Elektronik');
-    expect(first.stockTotal, 5);
-    expect(first.note, 'unit A');
-
-    final second = plan.drafts.last;
-    expect(second.code, isNull);
-    expect(second.category, isNull);
-    expect(second.note, isNull);
+    expect(first.noUrut, '1');
+    expect(first.name, 'Digital Caliper');
+    expect(first.code, 'RAB/01/01');
+    expect(first.range, '300 mm');
+    expect(first.brand, 'Mitutoyo');
+    expect(first.pic, 'QC');
+    expect(first.status, 'OK');
+    expect(first.stockTotal, 1);
   });
 
-  test('leaves unmapped optional columns null', () {
-    final plan = importer.plan(
-      table: table,
-      mapping: const {ItemField.name: 0, ItemField.stockTotal: 3},
+  test('reports the recognised columns and skips FOTO', () {
+    final plan = importer.plan(table: table, stockPerRow: 1);
+
+    final labels = plan.detected.map((column) => column.label).toList();
+    expect(
+      labels,
+      containsAll([
+        'No',
+        'Nama alat ukur',
+        'Kode alat ukur',
+        'Range',
+        'Brand',
+        'PIC',
+        'Status',
+      ]),
     );
-
-    expect(plan.drafts.first.code, isNull);
-    expect(plan.drafts.first.category, isNull);
-    expect(plan.drafts.first.note, isNull);
+    expect(plan.detected.any((column) => column.label == 'Stok total'), isFalse);
+    expect(
+      plan.detected.any((column) => column.header.toUpperCase() == 'FOTO'),
+      isFalse,
+    );
   });
 
-  test('reads a thousand separator in the stock column', () {
-    const withSeparator = CsvTable(
-      header: ['nama', 'stok'],
+  test('collapses a name split across two lines', () {
+    final plan = importer.plan(table: table, stockPerRow: 1);
+    expect(plan.drafts.last.name, 'Bevel Protector (121432)');
+  });
+
+  test('uses one stock value for every row when there is no stock column', () {
+    final plan = importer.plan(table: table, stockPerRow: 3);
+
+    expect(plan.issues, isEmpty);
+    expect(plan.drafts.map((draft) => draft.stockTotal), [3, 3]);
+  });
+
+  test('reads stock from a stock column when the file has one', () {
+    const withStock = CsvTable(
+      header: ['NAMA ALAT UKUR', 'STOK'],
       rows: [
         ['Kursi', '1.000'],
         ['Meja', '1,000'],
       ],
     );
 
-    final plan = importer.plan(
-      table: withSeparator,
-      mapping: const {ItemField.name: 0, ItemField.stockTotal: 1},
-    );
+    final plan = importer.plan(table: withStock);
 
     expect(plan.drafts.map((draft) => draft.stockTotal), [1000, 1000]);
   });
 
-  test('reports a row without a name instead of importing it', () {
-    const missingName = CsvTable(
-      header: ['nama', 'stok'],
+  test('leaves columns the file does not have as null', () {
+    const minimal = CsvTable(
+      header: ['NAMA', 'STOK'],
       rows: [
-        ['', '5'],
-        ['Proyektor', '5'],
+        ['Kursi', '5'],
       ],
     );
 
-    final plan = importer.plan(
-      table: missingName,
-      mapping: const {ItemField.name: 0, ItemField.stockTotal: 1},
+    final plan = importer.plan(table: minimal);
+
+    expect(plan.drafts.single.noUrut, isNull);
+    expect(plan.drafts.single.code, isNull);
+    expect(plan.drafts.single.brand, isNull);
+    expect(plan.drafts.single.status, isNull);
+  });
+
+  test('reports a row without a name instead of importing it', () {
+    const missingName = CsvTable(
+      header: ['NAMA ALAT UKUR', 'STOK'],
+      rows: [
+        ['', '5'],
+        ['Kursi', '5'],
+      ],
     );
 
+    final plan = importer.plan(table: missingName);
+
     expect(plan.drafts.length, 1);
-    expect(plan.drafts.single.name, 'Proyektor');
+    expect(plan.drafts.single.name, 'Kursi');
     expect(plan.issues.single.rowNumber, 1);
-    expect(plan.issues.single.message, contains('Nama barang'));
+    expect(plan.issues.single.message, contains('Nama alat ukur'));
   });
 
   test('reports a stock value that is not a whole number', () {
     const badStock = CsvTable(
-      header: ['nama', 'stok'],
+      header: ['NAMA ALAT UKUR', 'STOK'],
       rows: [
-        ['Proyektor', 'lima'],
-        ['Kabel', '-2'],
+        ['Kursi', 'lima'],
+        ['Meja', '-2'],
       ],
     );
 
-    final plan = importer.plan(
-      table: badStock,
-      mapping: const {ItemField.name: 0, ItemField.stockTotal: 1},
-    );
+    final plan = importer.plan(table: badStock);
 
     expect(plan.drafts, isEmpty);
     expect(plan.issues.length, 2);
@@ -113,53 +152,67 @@ void main() {
 
   test('treats a short row as empty trailing columns', () {
     const shortRow = CsvTable(
-      header: ['nama', 'kode', 'stok'],
+      header: ['NAMA ALAT UKUR', 'KODE ALAT UKUR', 'STOK'],
       rows: [
-        ['Proyektor', 'PRJ-1'],
+        ['Kursi', 'K-1'],
       ],
     );
 
-    final plan = importer.plan(
-      table: shortRow,
-      mapping: const {
-        ItemField.name: 0,
-        ItemField.code: 1,
-        ItemField.stockTotal: 2,
-      },
-    );
+    final plan = importer.plan(table: shortRow);
 
     expect(plan.issues.single.message, contains('Stok total'));
   });
 
-  test('refuses to plan without the two required columns', () {
-    expect(
-      () => importer.plan(
-        table: table,
-        mapping: const {ItemField.stockTotal: 3},
-      ),
-      throwsA(isA<ValidationException>()),
+  test('skips a row whose cells all read blank', () {
+    const withGap = CsvTable(
+      header: ['NAMA ALAT UKUR', 'STOK'],
+      rows: [
+        ['Kursi', '5'],
+        ['', ''],
+        ['Meja', '2'],
+      ],
     );
+
+    final plan = importer.plan(table: withGap);
+
+    expect(plan.drafts.map((draft) => draft.name), ['Kursi', 'Meja']);
+    expect(plan.issues, isEmpty);
+  });
+
+  test('refuses a table without the name column', () {
+    const noName = CsvTable(
+      header: ['KODE ALAT UKUR', 'BRAND'],
+      rows: [
+        ['RAB/01', 'Mitutoyo'],
+      ],
+    );
+
     expect(
-      () => importer.plan(
-        table: table,
-        mapping: const {ItemField.name: 0},
-      ),
+      () => importer.plan(table: noName, stockPerRow: 1),
       throwsA(isA<ValidationException>()),
     );
   });
 
-  test('a draft becomes an item whose availability equals its total', () {
-    final item = table.rows.isEmpty
-        ? null
-        : importer
-            .plan(table: table, mapping: mapping)
-            .drafts
-            .first
-            .toItem();
+  test('refuses when there is no stock column and no stock per row', () {
+    expect(
+      () => importer.plan(table: table),
+      throwsA(
+        isA<ValidationException>().having(
+          (error) => error.message,
+          'message',
+          contains('Stok tiap baris'),
+        ),
+      ),
+    );
+  });
 
-    expect(item, isNotNull);
-    expect(item!.stockTotal, 5);
-    expect(item.stockAvailable, 5);
+  test('a draft becomes an item whose availability equals its total', () {
+    final item = importer.plan(table: table, stockPerRow: 3).drafts.first.toItem();
+
+    expect(item.stockTotal, 3);
+    expect(item.stockAvailable, 3);
     expect(item.borrowed, 0);
+    expect(item.code, 'RAB/01/01');
+    expect(item.brand, 'Mitutoyo');
   });
 }

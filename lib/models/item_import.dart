@@ -1,50 +1,46 @@
 import '../models/item.dart';
 
-/// Fields a CSV column can be mapped to. Only [name] and [stockTotal] are
-/// required, the rest may stay unmapped.
-enum ItemField {
-  name('Nama barang'),
-  code('Kode'),
-  category('Kategori'),
-  stockTotal('Stok total'),
-  note('Catatan');
-
-  const ItemField(this.label);
-
-  final String label;
-
-  bool get isRequired => this == ItemField.name || this == ItemField.stockTotal;
-}
-
 /// One data row that passed validation and is ready to be written.
+///
+/// The fields mirror the master "Daftar Alat Ukur" file, so the importer maps
+/// its columns straight across without asking the admin to match them by hand.
 class ItemDraft {
   const ItemDraft({
     required this.rowNumber,
     required this.name,
+    this.noUrut,
     this.code,
-    this.category,
+    this.range,
+    this.brand,
+    this.pic,
+    this.status,
     required this.stockTotal,
-    this.note,
   });
 
   /// Position among the data rows, 1-based and counted after the header row, so
   /// a rejected row can be pointed at in the imported file.
   final int rowNumber;
 
+  final String? noUrut;
   final String name;
   final String? code;
-  final String? category;
+  final String? range;
+  final String? brand;
+  final String? pic;
+  final String? status;
   final int stockTotal;
-  final String? note;
 
   /// A brand new item is fully available, so availability mirrors the total.
   Item toItem() => Item(
+        noUrut: noUrut,
         name: name,
         code: code,
-        category: category,
+        range: range,
+        brand: brand,
+        pic: pic,
+        status: status,
         stockTotal: stockTotal,
         stockAvailable: stockTotal,
-        note: note,
       );
 }
 

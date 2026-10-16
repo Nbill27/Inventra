@@ -25,33 +25,42 @@ class ItemFormScreen extends StatefulWidget {
 
 class _ItemFormScreenState extends State<ItemFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _noUrut;
   late final TextEditingController _name;
   late final TextEditingController _code;
-  late final TextEditingController _category;
+  late final TextEditingController _range;
+  late final TextEditingController _brand;
+  late final TextEditingController _pic;
+  late final TextEditingController _status;
   late final TextEditingController _stockTotal;
-  late final TextEditingController _note;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     final item = widget.item;
+    _noUrut = TextEditingController(text: item?.noUrut ?? '');
     _name = TextEditingController(text: item?.name ?? '');
     _code = TextEditingController(text: item?.code ?? '');
-    _category = TextEditingController(text: item?.category ?? '');
+    _range = TextEditingController(text: item?.range ?? '');
+    _brand = TextEditingController(text: item?.brand ?? '');
+    _pic = TextEditingController(text: item?.pic ?? '');
+    _status = TextEditingController(text: item?.status ?? '');
     _stockTotal = TextEditingController(
       text: item == null ? '' : item.stockTotal.toString(),
     );
-    _note = TextEditingController(text: item?.note ?? '');
   }
 
   @override
   void dispose() {
+    _noUrut.dispose();
     _name.dispose();
     _code.dispose();
-    _category.dispose();
+    _range.dispose();
+    _brand.dispose();
+    _pic.dispose();
+    _status.dispose();
     _stockTotal.dispose();
-    _note.dispose();
     super.dispose();
   }
 
@@ -72,32 +81,72 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             TextFormField(
+              controller: _noUrut,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'No',
+                helperText: 'Opsional. Nomor urut pada daftar alat ukur.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
               controller: _name,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Nama barang',
-                helperText: 'Wajib. Contoh: Proyektor Epson EB-X06',
+                labelText: 'Nama alat ukur',
+                helperText: 'Wajib. Contoh: Digital Caliper',
                 border: OutlineInputBorder(),
               ),
-              validator: (value) => _requiredText(value, 'Nama barang'),
+              validator: (value) => _requiredText(value, 'Nama alat ukur'),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _code,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Kode barang',
-                helperText: 'Opsional. Dipakai untuk mencocokkan duplikat saat impor CSV.',
+                labelText: 'Kode alat ukur',
+                helperText: 'Opsional. Dipakai untuk mencocokkan duplikat saat impor.',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _category,
+              controller: _range,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Kategori',
-                helperText: 'Opsional. Contoh: Elektronik',
+                labelText: 'Range',
+                helperText: 'Opsional. Contoh: 150 mm',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _brand,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Brand',
+                helperText: 'Opsional. Contoh: Mitutoyo',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _pic,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'PIC',
+                helperText: 'Opsional. Penanggung jawab. Contoh: QC',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _status,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Status',
+                helperText: 'Opsional. Contoh: OK atau Not Good / Rusak',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -114,19 +163,6 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 border: const OutlineInputBorder(),
               ),
               validator: _stockValidator,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _note,
-              minLines: 3,
-              maxLines: 5,
-              textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
-                labelText: 'Catatan',
-                helperText: 'Opsional. Contoh: rak A, unit A saja yang berfungsi.',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
             ),
             const SizedBox(height: 24),
             FilledButton(
@@ -189,15 +225,18 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
 
     final draft = Item(
       id: existing?.id,
+      noUrut: _noUrut.text,
       name: _name.text,
       code: _code.text,
-      category: _category.text,
+      range: _range.text,
+      brand: _brand.text,
+      pic: _pic.text,
+      status: _status.text,
       stockTotal: stockTotal,
       // On create the item is fully available. On update the repository derives
       // availability from the borrowed count, so this value is not the source
       // of truth there.
       stockAvailable: existing?.stockAvailable ?? stockTotal,
-      note: _note.text,
     );
 
     final error = existing == null

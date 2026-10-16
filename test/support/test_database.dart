@@ -12,18 +12,24 @@ DatabaseHelper createTestDatabase() {
 
 Item itemFixture({
   String name = 'Proyektor',
+  String? noUrut,
   String? code,
-  String? category,
+  String? range,
+  String? brand,
+  String? pic,
+  String? status,
   int stockTotal = 5,
-  String? note,
 }) =>
     Item(
+      noUrut: noUrut,
       name: name,
       code: code,
-      category: category,
+      range: range,
+      brand: brand,
+      pic: pic,
+      status: status,
       stockTotal: stockTotal,
       stockAvailable: stockTotal,
-      note: note,
     );
 
 Loan loanFixture({
