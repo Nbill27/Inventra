@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_theme.dart';
 import '../core/dates.dart';
 import '../core/formatters.dart';
 import '../models/loan.dart';
@@ -127,44 +128,83 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final loan = widget.detail.loan;
     final item = widget.detail.item;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detail Peminjaman')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.gap,
+          AppTheme.gap,
+          AppTheme.gap,
+          32,
+        ),
         children: [
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppTheme.gap),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(loan.borrowerName, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  StatusChip(loan: loan),
-                  const SizedBox(height: 16),
-                  _row('Barang', _itemLabel(item.name, item.code)),
-                  _row('Jumlah', '${loan.quantity} unit'),
-                  _row('Kontak', loan.contact ?? 'Tidak diisi'),
-                  _row('Tanggal pinjam', formatLongDate(loan.loanDate)),
-                  _row('Rencana kembali', formatLongDate(loan.dueDate)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          loan.borrowerName,
+                          style: theme.textTheme.titleLarge,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      StatusChip(loan: loan),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: scheme.outlineVariant, height: 1),
+                  const SizedBox(height: 12),
+                  _row(
+                    Icons.straighten,
+                    'Barang',
+                    _itemLabel(item.name, item.code),
+                  ),
+                  _row(Icons.numbers, 'Jumlah', '${loan.quantity} unit'),
+                  _row(
+                    Icons.phone_outlined,
+                    'Kontak',
+                    loan.contact ?? 'Tidak diisi',
+                  ),
+                  _row(
+                    Icons.event_outlined,
+                    'Tanggal pinjam',
+                    formatLongDate(loan.loanDate),
+                  ),
+                  _row(
+                    Icons.event_available_outlined,
+                    'Rencana kembali',
+                    formatLongDate(loan.dueDate),
+                  ),
                   if (loan.returnDate != null)
-                    _row('Dikembalikan', formatLongDate(loan.returnDate!)),
-                  _row('Catatan', loan.note ?? 'Tidak ada'),
+                    _row(
+                      Icons.assignment_turned_in_outlined,
+                      'Dikembalikan',
+                      formatLongDate(loan.returnDate!),
+                    ),
+                  _row(Icons.notes_outlined, 'Catatan', loan.note ?? 'Tidak ada'),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 24),
-          if (loan.status == LoanStatus.borrowed)
+          if (loan.status == LoanStatus.borrowed) ...[
             FilledButton.icon(
               onPressed: _busy ? null : _markReturned,
               icon: const Icon(Icons.assignment_turned_in_outlined),
               label: const Text('Tandai dikembalikan'),
             ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
+          ],
           OutlinedButton.icon(
             onPressed: _busy ? null : _edit,
             icon: const Icon(Icons.edit_outlined),
@@ -173,7 +213,7 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: _busy ? null : _delete,
-            style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
             icon: const Icon(Icons.delete_outline),
             label: const Text('Hapus'),
           ),
@@ -185,23 +225,32 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   static String _itemLabel(String name, String? code) =>
       code == null ? name : '$name ($code)';
 
-  Widget _row(String label, String value) {
+  /// One labelled fact: a leading icon keeps the column scannable, and the
+  /// label sits above the value so long values never squeeze the label away.
+  Widget _row(IconData icon, String label, String value) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 128,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(value, style: theme.textTheme.bodyLarge),
+              ],
             ),
           ),
-          Expanded(child: Text(value)),
         ],
       ),
     );

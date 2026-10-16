@@ -39,18 +39,18 @@ class _HomeShellState extends State<HomeShell> {
         index: _index,
         children: const [ItemListScreen(), LoanListScreen()],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: _onSelect,
-        items: const [
-          BottomNavigationBarItem(
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: _onSelect,
+        destinations: const [
+          NavigationDestination(
             icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory_2),
+            selectedIcon: Icon(Icons.inventory_2),
             label: 'Barang',
           ),
-          BottomNavigationBarItem(
+          NavigationDestination(
             icon: Icon(Icons.assignment_outlined),
-            activeIcon: Icon(Icons.assignment),
+            selectedIcon: Icon(Icons.assignment),
             label: 'Peminjaman',
           ),
         ],

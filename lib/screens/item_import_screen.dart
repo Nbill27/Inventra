@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_theme.dart';
 import '../core/exceptions.dart';
 import '../models/item_import.dart';
 import '../providers/item_provider.dart';
@@ -252,7 +253,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   Widget _setupView() {
     final table = _table;
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppTheme.gap),
       children: [
         const Text(
           'Pilih file Excel (.xlsx) atau CSV. Kolom dibaca otomatis, jadi tidak '
@@ -301,7 +302,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
       return Card(
         color: theme.colorScheme.errorContainer,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppTheme.gap),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -323,7 +324,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppTheme.gap),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -526,11 +527,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: InputDecorator(
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-            isDense: true,
-          ),
+          decoration: InputDecoration(labelText: label, isDense: true),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<T>(
               value: value,
@@ -587,8 +584,8 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         decoration: const InputDecoration(
           labelText: 'Stok tiap barang',
-          helperText: 'File tidak punya kolom stok. Isi 1 kalau tiap barang satu unit.',
-          border: OutlineInputBorder(),
+          helperText:
+              'File tidak punya kolom stok. Isi 1 kalau tiap barang satu unit.',
           isDense: true,
         ),
         onChanged: (_) => setState(() {}),
@@ -624,7 +621,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   Widget _reportView(ImportReport report) {
     final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppTheme.gap),
       children: [
         Text('Hasil impor', style: theme.textTheme.titleLarge),
         const SizedBox(height: 12),

@@ -18,12 +18,17 @@ class LoanRepository {
   static const _itemTable = 'items';
 
   /// FR-L5: newest first. Items are fetched in one extra query instead of per row.
-  Future<List<LoanDetail>> getAllDetailed({LoanStatus? status}) async {
+  ///
+  /// [statuses] narrows the list; an empty set (or null) means every status.
+  Future<List<LoanDetail>> getAllDetailed({Set<LoanStatus>? statuses}) async {
     final db = await _helper.database;
+    final wanted = statuses == null || statuses.isEmpty ? null : statuses.toList();
     final rows = await db.query(
       _table,
-      where: status == null ? null : 'status = ?',
-      whereArgs: status == null ? null : [status.dbValue],
+      where: wanted == null
+          ? null
+          : 'status IN (${List.filled(wanted.length, '?').join(', ')})',
+      whereArgs: wanted?.map((status) => status.dbValue).toList(),
       orderBy: 'loan_date DESC, id DESC',
     );
     final loans = rows.map(Loan.fromMap).toList();

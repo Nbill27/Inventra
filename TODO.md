@@ -11,7 +11,8 @@ Aturan kerja: setiap item selesai harus punya bukti, yaitu tes yang lulus atau l
 - [~] `database_helper`: skema v1, CHECK constraint stok, indeks `loans(item_id)` dan `loans(status)`, `PRAGMA foreign_keys = ON`
 - [~] Repository barang dan peminjaman, seluruh perhitungan stok di dalam satu transaksi
 - [~] Provider barang dan peminjaman, stale-guard `_requestId`
-- [ ] `TODO(design)`: `DESIGN.md` belum ada, jadi seluruh UI saat ini adalah **draft tanpa arah**, dial ENERGY 1 / RHYTHM 1 / MOTION 1. Belum bisa disebut hasil akhir sampai arah desain ditentukan
+- [x] Arah visual ditentukan: Material 3 dari satu seed biru, seluruh gaya terpusat di `lib/core/app_theme.dart` (warna, radius, tinggi kontrol 48dp, kartu, input, tombol, chip, snackbar, navigation bar)
+- [ ] `TODO(design-doc)`: `DESIGN.md` belum ditulis sebagai dokumen; arahnya saat ini hidup di dalam kode tema
 - [ ] `TODO(icon)`: ikon aplikasi dan logo belum dibuat. Butuh konfirmasi pemilik sebelum digambar
 - [ ] `TODO(prd-14)`: empat pertanyaan terbuka PRD §14 belum dijawab (jenis barang, multi-barang per transaksi, batas durasi/jumlah pinjam, barang rusak atau hilang)
 
@@ -33,7 +34,7 @@ Aturan kerja: setiap item selesai harus punya bukti, yaitu tes yang lulus atau l
 - [x] FR-L3 tanggal kembali rencana tidak sebelum tanggal pinjam
 - [x] FR-L4 pembuatan peminjaman mengurangi stok tersedia
 - [x] FR-L5 daftar peminjaman diurutkan terbaru dulu
-- [ ] FR-L6 filter daftar berdasarkan status
+- [x] FR-L6 filter daftar berdasarkan status (bisa pilih beberapa sekaligus atau semua)
 - [ ] FR-L7 detail peminjaman
 - [x] FR-L8 ubah data peminjaman
 - [x] FR-L9 tandai dikembalikan: tanggal kembali aktual diisi, status `selesai`, stok tersedia bertambah
@@ -92,22 +93,22 @@ T1 sampai T13 lulus di lapisan repository dan database, 32 tes. Yang belum: peng
 
 ## 8. UI
 
-- [ ] Tema Material 3 mode terang dan gelap mengikuti pengaturan HP
-- [ ] `HomeShell` dengan navigasi bawah dua tab: Barang dan Peminjaman
-- [ ] Layar daftar barang: pencarian, daftar, indikator stok, tombol tambah, empty state
-- [ ] Layar form barang: mode tambah dan ubah, validasi, tombol hapus
-- [ ] Layar impor barang dari CSV: pilih file, pemetaan kolom, pratinjau, ringkasan
-- [ ] Layar daftar peminjaman: filter status, chip status dan Terlambat, tombol tambah
-- [ ] Layar form peminjaman: pilih barang beserta stok tersedia, jumlah, dua date picker, catatan
-- [ ] Layar detail peminjaman: seluruh data, tandai dikembalikan, ubah, hapus
-- [ ] Tiga keadaan pada setiap daftar: kosong, memuat, dan gagal
-- [ ] SnackBar untuk hasil sukses dan gagal
-- [ ] Dialog konfirmasi untuk semua aksi hapus
-- [ ] Label aplikasi di Android masih `peminjaman_barang`, ubah menjadi "Peminjaman Barang"
+- [x] Tema Material 3 mode terang dan gelap mengikuti pengaturan HP
+- [x] `HomeShell` dengan navigasi bawah dua tab: Barang dan Peminjaman (NavigationBar)
+- [x] Layar daftar barang: pencarian, daftar, indikator stok, tombol tambah, empty state
+- [x] Layar form barang: mode tambah dan ubah, validasi, tombol hapus
+- [x] Layar impor barang: pilih file, kolom dikenali otomatis, pratinjau, ringkasan
+- [x] Layar daftar peminjaman: filter status, chip status dan Terlambat, tombol tambah
+- [x] Layar form peminjaman: pilih barang beserta stok tersedia, jumlah, dua date picker, catatan
+- [x] Layar detail peminjaman: seluruh data, tandai dikembalikan, ubah, hapus
+- [x] Tiga keadaan pada setiap daftar: kosong, memuat, dan gagal
+- [x] SnackBar untuk hasil sukses dan gagal
+- [x] Dialog konfirmasi untuk semua aksi hapus
+- [x] Label aplikasi di Android sudah "Peminjaman Barang"
 
 ## 9. Di luar MVP, dicatat supaya tidak hilang
 
-- [ ] `TODO(export)`: ekspor dan cadangan CSV
+- [~] `TODO(export)`: ekspor riwayat peminjaman ke Excel/CSV sudah ada (mengikuti filter yang tampil). Ekspor/cadangan daftar barang belum
 - [ ] `TODO(multi-item)`: satu peminjaman untuk banyak barang sekaligus
 - [ ] `TODO(statistics)`: dashboard ringkasan dan laporan
 - [ ] `TODO(overdue-notif)`: notifikasi pengingat keterlambatan

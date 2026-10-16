@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_theme.dart';
 import '../models/item.dart';
 import '../providers/item_provider.dart';
 import '../widgets/empty_state.dart';
@@ -52,7 +53,6 @@ class _ItemListScreenState extends State<ItemListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ItemProvider>();
-    final isSearching = provider.query.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -61,46 +61,71 @@ class _ItemListScreenState extends State<ItemListScreen> {
           IconButton(
             tooltip: 'Impor dari berkas',
             onPressed: () => _open(const ItemImportScreen()),
-            icon: const Icon(Icons.upload_file),
+            icon: const Icon(Icons.upload_file_outlined),
           ),
         ],
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              controller: _search,
-              onChanged: _onSearchChanged,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Cari nama atau kode barang',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Bersihkan pencarian',
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.clear),
-                      ),
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.gap,
+              4,
+              AppTheme.gap,
+              0,
             ),
+            child: _searchField(context),
           ),
-          Expanded(child: _body(provider, isSearching)),
+          Expanded(child: _body(provider)),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _open(const ItemFormScreen()),
         icon: const Icon(Icons.add),
-        label: const Text('Barang'),
+        label: const Text('Tambah barang'),
       ),
     );
   }
 
-  Widget _body(ItemProvider provider, bool isSearching) {
+  /// A pill-shaped search field: rounded, filled, and with no visible border,
+  /// so it reads as a search box rather than a form field.
+  Widget _searchField(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TextField(
+      controller: _search,
+      onChanged: _onSearchChanged,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'Cari nama atau kode barang',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _search.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Bersihkan pencarian',
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.close),
+              ),
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide(color: scheme.primary, width: 2),
+        ),
+      ),
+    );
+  }
+
+  Widget _body(ItemProvider provider) {
     final items = provider.items;
+    final isSearching = provider.query.trim().isNotEmpty;
 
     if (provider.errorMessage != null && items.isEmpty) {
       return ErrorState(
@@ -141,32 +166,208 @@ class _ItemListScreenState extends State<ItemListScreen> {
 
     return RefreshIndicator(
       onRefresh: () => context.read<ItemProvider>().load(),
-      child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 88),
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, index) => _row(items[index]),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.gap,
+          8,
+          AppTheme.gap,
+          96,
+        ),
+        itemCount: items.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _countLabel(items.length, isSearching);
+          }
+          final item = items[index - 1];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _ItemCard(
+              key: ValueKey(item.id),
+              item: item,
+              onTap: () => _open(ItemFormScreen(item: item)),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _row(Item item) => ListTile(
-        title: Text(item.name),
-        subtitle: Text(_subtitle(item)),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _open(ItemFormScreen(item: item)),
+  Widget _countLabel(int count, bool isSearching) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          isSearching ? '$count hasil' : '$count barang',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
       );
-
-  String _subtitle(Item item) => [
-        if (item.code != null) 'Kode ${item.code}',
-        if (item.brand != null) item.brand!,
-        if (item.status != null) item.status!,
-        'Tersedia ${item.stockAvailable} dari ${item.stockTotal}',
-      ].join(' - ');
 
   Future<void> _open(Widget screen) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+}
+
+/// One item as a card: a leading tile, the name and code, and a stock badge that
+/// turns red once nothing is left.
+class _ItemCard extends StatelessWidget {
+  const _ItemCard({super.key, required this.item, required this.onTap});
+
+  final Item item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.straighten,
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (item.code != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        item.code!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _StockBadge(item: item),
+                        if (item.brand != null) _Tag(item.brand!),
+                        if (item.status != null) _Tag(item.status!),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: scheme.outline),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Available-over-total, coloured red when the item is fully out.
+class _StockBadge extends StatelessWidget {
+  const _StockBadge({required this.item});
+
+  final Item item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final empty = item.stockAvailable == 0;
+    final background =
+        empty ? scheme.errorContainer : scheme.primaryContainer;
+    final foreground =
+        empty ? scheme.onErrorContainer : scheme.onPrimaryContainer;
+
+    return _Pill(
+      background: background,
+      foreground: foreground,
+      icon: empty ? Icons.block : Icons.inventory_2_outlined,
+      label: empty
+          ? 'Habis'
+          : 'Tersedia ${item.stockAvailable}/${item.stockTotal}',
+      bold: true,
+    );
+  }
+}
+
+/// A quiet label for the optional fields, so they do not compete with stock.
+class _Tag extends StatelessWidget {
+  const _Tag(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _Pill(
+      background: scheme.surfaceContainerHighest,
+      foreground: scheme.onSurfaceVariant,
+      label: text,
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.background,
+    required this.foreground,
+    required this.label,
+    this.icon,
+    this.bold = false,
+  });
+
+  final Color background;
+  final Color foreground;
+  final String label;
+  final IconData? icon;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: foreground),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: foreground,
+                  fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

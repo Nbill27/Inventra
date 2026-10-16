@@ -174,10 +174,15 @@ void main() {
     await loans.markReturned(loanId: doneId, returnDate: DateTime(2026, 10, 6));
 
     expect((await loans.getAllDetailed()).length, 2);
-    final active = await loans.getAllDetailed(status: LoanStatus.borrowed);
+    final active = await loans.getAllDetailed(statuses: {LoanStatus.borrowed});
     expect(active.single.loan.id, activeId);
-    final done = await loans.getAllDetailed(status: LoanStatus.returned);
+    final done = await loans.getAllDetailed(statuses: {LoanStatus.returned});
     expect(done.single.loan.id, doneId);
+    // Several statuses at once returns both.
+    final both = await loans.getAllDetailed(statuses: LoanStatus.values.toSet());
+    expect(both.length, 2);
+    // An empty set means every status.
+    expect((await loans.getAllDetailed(statuses: const {})).length, 2);
   });
 
   test('6.3.3: changing the quantity recalculates stock', () async {

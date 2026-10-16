@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_theme.dart';
 import '../models/item.dart';
 import '../providers/item_provider.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/section_title.dart';
 
 /// Serves both "tambah barang" (FR-B1) and "ubah barang" (FR-B5), including the
 /// delete action (FR-B6) which is only offered in edit mode.
@@ -78,79 +80,91 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.gap,
+            AppTheme.gap,
+            AppTheme.gap,
+            32,
+          ),
           children: [
+            const SectionTitle(
+              icon: Icons.badge_outlined,
+              label: 'Identitas alat',
+            ),
             TextFormField(
               controller: _noUrut,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'No',
                 helperText: 'Opsional. Nomor urut pada daftar alat ukur.',
-                border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.gap),
             TextFormField(
               controller: _name,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Nama alat ukur',
                 helperText: 'Wajib. Contoh: Digital Caliper',
-                border: OutlineInputBorder(),
               ),
               validator: (value) => _requiredText(value, 'Nama alat ukur'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.gap),
             TextFormField(
               controller: _code,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Kode alat ukur',
-                helperText: 'Opsional. Dipakai untuk mencocokkan duplikat saat impor.',
-                border: OutlineInputBorder(),
+                helperText: 'Opsional. Dipakai mencocokkan duplikat saat impor.',
               ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 28),
+            const SectionTitle(
+              icon: Icons.tune,
+              label: 'Spesifikasi',
+            ),
             TextFormField(
               controller: _range,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Range',
                 helperText: 'Opsional. Contoh: 150 mm',
-                border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.gap),
             TextFormField(
               controller: _brand,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Brand',
                 helperText: 'Opsional. Contoh: Mitutoyo',
-                border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.gap),
             TextFormField(
               controller: _pic,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'PIC',
                 helperText: 'Opsional. Penanggung jawab. Contoh: QC',
-                border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.gap),
             TextFormField(
               controller: _status,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Status',
                 helperText: 'Opsional. Contoh: OK atau Not Good / Rusak',
-                border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 28),
+            const SectionTitle(
+              icon: Icons.inventory_2_outlined,
+              label: 'Stok',
+            ),
             TextFormField(
               controller: _stockTotal,
               keyboardType: TextInputType.number,
@@ -160,11 +174,11 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 helperText: widget.isEditing
                     ? '$borrowed unit sedang dipinjam. Nilai di bawah $borrowed akan ditolak.'
                     : 'Wajib. Barang baru langsung tersedia sebanyak ini.',
-                border: const OutlineInputBorder(),
               ),
               validator: _stockValidator,
             ),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 28),
             FilledButton(
               onPressed: _saving ? null : _submit,
               child: Text(_saving ? 'Menyimpan...' : 'Simpan'),
@@ -173,7 +187,9 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _saving ? null : _delete,
-                style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                ),
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('Hapus barang'),
               ),

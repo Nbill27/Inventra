@@ -11,14 +11,28 @@ class ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
+            Container(
+              width: 88,
+              height: 88,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: scheme.errorContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline,
+                size: 40,
+                color: scheme.onErrorContainer,
+              ),
+            ),
+            const SizedBox(height: 20),
             Text(
               'Gagal memuat data',
               style: theme.textTheme.titleMedium,
@@ -28,15 +42,16 @@ class ErrorState extends StatelessWidget {
             Text(
               message,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: scheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 20),
-              FilledButton.tonal(
+              const SizedBox(height: 24),
+              FilledButton.tonalIcon(
                 onPressed: onRetry,
-                child: const Text('Coba lagi'),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba lagi'),
               ),
             ],
           ],

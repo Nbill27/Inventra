@@ -14,13 +14,16 @@ class LoanProvider extends ChangeNotifier {
   List<LoanDetail> _loans = const [];
   bool _isLoading = false;
   String? _errorMessage;
-  LoanStatus? _statusFilter;
+
+  /// Empty means "all statuses", so the list screen can offer a multi-select
+  /// filter without a separate "everything" flag.
+  Set<LoanStatus> _statusFilters = const {};
   int _requestId = 0;
 
   List<LoanDetail> get loans => _loans;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  LoanStatus? get statusFilter => _statusFilter;
+  Set<LoanStatus> get statusFilters => _statusFilters;
 
   Future<void> load() async {
     final requestId = ++_requestId;
@@ -29,7 +32,7 @@ class LoanProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final loans = await _repository.getAllDetailed(status: _statusFilter);
+      final loans = await _repository.getAllDetailed(statuses: _statusFilters);
       if (requestId != _requestId) {
         return;
       }
@@ -51,8 +54,9 @@ class LoanProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> filterBy(LoanStatus? status) async {
-    _statusFilter = status;
+  /// An empty set shows every status.
+  Future<void> filterBy(Set<LoanStatus> statuses) async {
+    _statusFilters = statuses;
     await load();
   }
 

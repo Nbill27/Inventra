@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_theme.dart';
 import '../core/dates.dart';
 import '../core/formatters.dart';
 import '../models/item.dart';
@@ -9,6 +10,7 @@ import '../models/loan.dart';
 import '../providers/item_provider.dart';
 import '../providers/loan_provider.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/section_title.dart';
 
 /// Serves both "catat peminjaman" (FR-L2) and "ubah peminjaman" (FR-L8).
 class LoanFormScreen extends StatefulWidget {
@@ -107,20 +109,28 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.gap,
+          AppTheme.gap,
+          AppTheme.gap,
+          32,
+        ),
         children: [
           if (_isLocked) ...[
             _notice(
               'Peminjaman ini sudah selesai, jadi barang dan jumlahnya tidak '
               'bisa diubah lagi agar riwayat stok tetap benar.',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppTheme.gap),
           ],
+
+          const SectionTitle(
+            icon: Icons.person_outline,
+            label: 'Barang & peminjam',
+          ),
           InputDecorator(
             decoration: const InputDecoration(
               labelText: 'Barang',
-              border: OutlineInputBorder(),
-              isDense: true,
               helperText: 'Angka dalam kurung adalah stok yang bisa dipinjam.',
             ),
             child: DropdownButtonHideUnderline(
@@ -139,24 +149,24 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                       value: item.id,
                       child: Text(
                         '${item.name} (${_availableFor(item)} tersedia)',
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTheme.gap),
           TextFormField(
             controller: _borrower,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: 'Nama peminjam',
               helperText: 'Wajib. Contoh: Rani - XI RPL 1',
-              border: OutlineInputBorder(),
             ),
             validator: (value) => _requiredText(value, 'Nama peminjam'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTheme.gap),
           TextFormField(
             controller: _contact,
             keyboardType: TextInputType.phone,
@@ -164,10 +174,14 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
             decoration: const InputDecoration(
               labelText: 'Kontak',
               helperText: 'Opsional. Nomor HP atau kelas.',
-              border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
+
+          const SizedBox(height: 28),
+          const SectionTitle(
+            icon: Icons.event_outlined,
+            label: 'Jumlah & tanggal',
+          ),
           TextFormField(
             controller: _quantity,
             enabled: !_isLocked,
@@ -177,24 +191,28 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
             decoration: const InputDecoration(
               labelText: 'Jumlah pinjam',
               helperText: 'Wajib. Satu peminjaman hanya untuk satu jenis barang.',
-              border: OutlineInputBorder(),
             ),
             validator: (value) => _quantityValidator(value, items),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTheme.gap),
           _dateTile(
             label: 'Tanggal pinjam',
             value: _loanDate,
             onTap: _pickLoanDate,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppTheme.gap),
           _dateTile(
             label: 'Tanggal kembali rencana',
             value: _dueDate,
             onTap: _pickDueDate,
             helper: 'Melewati tanggal ini, status berubah jadi Terlambat.',
           ),
-          const SizedBox(height: 16),
+
+          const SizedBox(height: 28),
+          const SectionTitle(
+            icon: Icons.notes_outlined,
+            label: 'Catatan',
+          ),
           TextFormField(
             controller: _note,
             minLines: 3,
@@ -203,11 +221,11 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
             decoration: const InputDecoration(
               labelText: 'Catatan',
               helperText: 'Opsional. Contoh: untuk kegiatan class meeting.',
-              border: OutlineInputBorder(),
               alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 28),
           FilledButton(
             onPressed: _saving ? null : () => _submit(items),
             child: Text(_saving ? 'Menyimpan...' : 'Simpan'),
@@ -216,7 +234,9 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
           Text(
             'Stok berkurang otomatis saat disimpan, dan kembali saat peminjaman '
             'ditandai selesai atau dihapus.',
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -241,6 +261,8 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     );
   }
 
+  /// A read-only field that opens the date picker, so it looks like every other
+  /// input in the form instead of a bare text row.
   Widget _dateTile({
     required String label,
     required DateTime value,
@@ -249,12 +271,11 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   }) =>
       InkWell(
         onTap: _saving ? null : onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
             helperText: helper,
-            border: const OutlineInputBorder(),
-            isDense: true,
             suffixIcon: const Icon(Icons.calendar_today, size: 18),
           ),
           child: Text(formatDisplayDate(value)),
