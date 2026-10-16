@@ -5,18 +5,21 @@ import 'package:provider/provider.dart';
 import '../core/app_theme.dart';
 import '../models/item.dart';
 import '../providers/item_provider.dart';
+import '../widgets/app_background.dart';
 import '../widgets/confirm_dialog.dart';
-import '../widgets/section_title.dart';
+import '../widgets/content_width.dart';
+import '../widgets/panel.dart';
+import '../widgets/section_header.dart';
 
-/// Serves both "tambah barang" (FR-B1) and "ubah barang" (FR-B5), including the
-/// delete action (FR-B6) which is only offered in edit mode.
+/// Melayani "tambah barang" (FR-B1) dan "ubah barang" (FR-B5), termasuk aksi
+/// hapus (FR-B6) yang hanya muncul saat mengubah.
 ///
-/// Merged on purpose: the fields are identical, and a separate detail screen
-/// would only have been a third route to the same form.
+/// Sengaja digabung: bidangnya sama persis, dan layar detail terpisah hanya
+/// akan menjadi rute ketiga menuju form yang sama.
 class ItemFormScreen extends StatefulWidget {
   const ItemFormScreen({super.key, this.item});
 
-  /// Null means create mode.
+  /// Null berarti mode tambah.
   final Item? item;
 
   bool get isEditing => item != null;
@@ -68,133 +71,208 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final item = widget.item;
     final borrowed = item?.borrowed ?? 0;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isEditing ? 'Ubah Barang' : 'Tambah Barang'),
+        flexibleSpace: appBarScrim(),
+        actions: [
+          if (widget.isEditing) ...[
+            Tooltip(
+              message: 'Hapus barang',
+              child: Material(
+                color: AppTheme.chip,
+                shape: const CircleBorder(
+                  side: BorderSide(color: AppTheme.outlineVariant),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: _saving ? null : _delete,
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: AppTheme.touch,
+                    height: AppTheme.touch,
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppTheme.error,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppTheme.spaceSm),
+          ],
+        ],
       ),
+      bottomNavigationBar: _saveBar(),
       body: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppTheme.gap,
-            AppTheme.gap,
-            AppTheme.gap,
-            32,
-          ),
-          children: [
-            const SectionTitle(
-              icon: Icons.badge_outlined,
-              label: 'Identitas alat',
+        child: ContentWidth(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppTheme.spaceMd,
+              AppTheme.spaceSm,
+              AppTheme.spaceMd,
+              AppTheme.spaceLg,
             ),
-            TextFormField(
-              controller: _noUrut,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'No',
-                helperText: 'Opsional. Nomor urut pada daftar alat ukur.',
-              ),
-            ),
-            const SizedBox(height: AppTheme.gap),
-            TextFormField(
-              controller: _name,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Nama alat ukur',
-                helperText: 'Wajib. Contoh: Digital Caliper',
-              ),
-              validator: (value) => _requiredText(value, 'Nama alat ukur'),
-            ),
-            const SizedBox(height: AppTheme.gap),
-            TextFormField(
-              controller: _code,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Kode alat ukur',
-                helperText: 'Opsional. Dipakai mencocokkan duplikat saat impor.',
-              ),
-            ),
-
-            const SizedBox(height: 28),
-            const SectionTitle(
-              icon: Icons.tune,
-              label: 'Spesifikasi',
-            ),
-            TextFormField(
-              controller: _range,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Range',
-                helperText: 'Opsional. Contoh: 150 mm',
-              ),
-            ),
-            const SizedBox(height: AppTheme.gap),
-            TextFormField(
-              controller: _brand,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Brand',
-                helperText: 'Opsional. Contoh: Mitutoyo',
-              ),
-            ),
-            const SizedBox(height: AppTheme.gap),
-            TextFormField(
-              controller: _pic,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'PIC',
-                helperText: 'Opsional. Penanggung jawab. Contoh: QC',
-              ),
-            ),
-            const SizedBox(height: AppTheme.gap),
-            TextFormField(
-              controller: _status,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Status',
-                helperText: 'Opsional. Contoh: OK atau Not Good / Rusak',
-              ),
-            ),
-
-            const SizedBox(height: 28),
-            const SectionTitle(
-              icon: Icons.inventory_2_outlined,
-              label: 'Stok',
-            ),
-            TextFormField(
-              controller: _stockTotal,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: 'Stok total',
-                helperText: widget.isEditing
-                    ? '$borrowed unit sedang dipinjam. Nilai di bawah $borrowed akan ditolak.'
-                    : 'Wajib. Barang baru langsung tersedia sebanyak ini.',
-              ),
-              validator: _stockValidator,
-            ),
-
-            const SizedBox(height: 28),
-            FilledButton(
-              onPressed: _saving ? null : _submit,
-              child: Text(_saving ? 'Menyimpan...' : 'Simpan'),
-            ),
-            if (widget.isEditing) ...[
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: _saving ? null : _delete,
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
+            children: [
+              Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const GroupLabel(
+                      icon: Icons.badge_outlined,
+                      label: 'Identitas alat',
+                    ),
+                    const SizedBox(height: AppTheme.spaceMd),
+                    TextFormField(
+                      controller: _noUrut,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'No',
+                        hintText: 'mis. 12',
+                        prefixIcon: Icon(Icons.tag),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    TextFormField(
+                      controller: _name,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama alat ukur *',
+                        hintText: 'mis. Digital Caliper',
+                        prefixIcon: Icon(Icons.straighten),
+                      ),
+                      validator: (value) => _requiredText(value, 'Nama alat ukur'),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    TextFormField(
+                      controller: _code,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Kode alat ukur',
+                        hintText: 'dipakai mencocokkan duplikat saat impor',
+                        prefixIcon: Icon(Icons.qr_code_2),
+                      ),
+                    ),
+                  ],
                 ),
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Hapus barang'),
+              ),
+              const SizedBox(height: AppTheme.spaceMd),
+              Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const GroupLabel(
+                      icon: Icons.tune,
+                      label: 'Spesifikasi',
+                    ),
+                    const SizedBox(height: AppTheme.spaceMd),
+                    TextFormField(
+                      controller: _range,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Range',
+                        hintText: 'mis. 150 mm',
+                        prefixIcon: Icon(Icons.speed),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    TextFormField(
+                      controller: _brand,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Brand',
+                        hintText: 'mis. Mitutoyo',
+                        prefixIcon: Icon(Icons.sell_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    TextFormField(
+                      controller: _pic,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'PIC',
+                        hintText: 'penanggung jawab, mis. QC',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space12),
+                    TextFormField(
+                      controller: _status,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Status',
+                        hintText: 'mis. OK atau Not Good / Rusak',
+                        prefixIcon: Icon(Icons.toggle_on_outlined),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceMd),
+              Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const GroupLabel(
+                      icon: Icons.inventory_2_outlined,
+                      label: 'Stok',
+                    ),
+                    const SizedBox(height: AppTheme.spaceMd),
+                    TextFormField(
+                      controller: _stockTotal,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: 'Stok total *',
+                        prefixIcon: const Icon(Icons.inventory),
+                        helperText: widget.isEditing
+                            ? '$borrowed unit sedang dipinjam. Nilai di bawah '
+                                '$borrowed akan ditolak.'
+                            : 'Barang baru langsung tersedia sebanyak ini.',
+                      ),
+                      validator: _stockValidator,
+                    ),
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Tombol simpan di bar bawah: selalu dalam jangkauan jempol, dan tidak ikut
+  /// tergulir bersama bidang form.
+  Widget _saveBar() {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTheme.cardSolid,
+        border: Border(top: BorderSide(color: AppTheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceMd),
+          child: FilledButton.icon(
+            onPressed: _saving ? null : _submit,
+            icon: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.onPrimary,
+                    ),
+                  )
+                : const Icon(Icons.save),
+            label: Text(_saving ? 'Menyimpan…' : 'Simpan'),
+          ),
         ),
       ),
     );
@@ -249,9 +327,9 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
       pic: _pic.text,
       status: _status.text,
       stockTotal: stockTotal,
-      // On create the item is fully available. On update the repository derives
-      // availability from the borrowed count, so this value is not the source
-      // of truth there.
+      // Saat menambah, barang langsung tersedia penuh. Saat mengubah,
+      // repository menurunkan ketersediaan dari jumlah yang dipinjam, jadi
+      // nilai ini bukan sumber kebenaran di sana.
       stockAvailable: existing?.stockAvailable ?? stockTotal,
     );
 
@@ -287,8 +365,8 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
     final confirmed = await confirmAction(
       context,
       title: 'Hapus barang?',
-      message:
-          '"${item!.name}" akan dihapus. Penghapusan ditolak kalau barang masih terhubung ke peminjaman.',
+      message: '"${item!.name}" akan dihapus. Penghapusan ditolak kalau barang '
+          'masih terhubung ke peminjaman.',
       confirmLabel: 'Hapus',
     );
     if (!confirmed || !mounted) {

@@ -3,16 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../models/item.dart';
 import '../providers/item_provider.dart';
+import '../widgets/app_background.dart';
+import '../widgets/app_chrome.dart';
+import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
+import '../widgets/status_pill.dart';
 import 'item_form_screen.dart';
 import 'item_import_screen.dart';
 
-/// FR-B2, FR-B3 and NFR-4: the loan form should be reachable in a few taps, so
-/// the list is the first thing shown on the Barang tab.
+/// FR-B2, FR-B3 dan NFR-4: form peminjaman harus terjangkau dalam beberapa
+/// ketukan, jadi daftar barang adalah hal pertama yang tampil di tab Barang.
 class ItemListScreen extends StatefulWidget {
   const ItemListScreen({super.key});
 
@@ -31,8 +36,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
     super.dispose();
   }
 
-  /// Without this, every keystroke is a database query while the admin is still
-  /// typing a name.
+  /// Tanpa ini, setiap ketukan menjadi satu query database sementara admin
+  /// masih mengetik nama barang.
   void _onSearchChanged(String value) {
     setState(() {});
     _debounce?.cancel();
@@ -53,71 +58,67 @@ class _ItemListScreenState extends State<ItemListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ItemProvider>();
+    final items = provider.items;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Barang'),
-        actions: [
-          IconButton(
-            tooltip: 'Impor dari berkas',
-            onPressed: () => _open(const ItemImportScreen()),
-            icon: const Icon(Icons.upload_file_outlined),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTheme.gap,
-              4,
-              AppTheme.gap,
-              0,
+        toolbarHeight: 66,
+        titleSpacing: AppTheme.spaceMd,
+        automaticallyImplyLeading: false,
+        flexibleSpace: appBarScrim(),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Barang',
+              style: AppText.style(size: 20, weight: 700, color: AppTheme.ink),
             ),
-            child: _searchField(context),
+            Text(
+              provider.isLoading && items.isEmpty
+                  ? 'Memuat…'
+                  : '${items.length} barang',
+              style: AppText.style(
+                size: 12,
+                weight: 500,
+                color: AppTheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          RoundIconButton(
+            tooltip: 'Impor dari berkas',
+            icon: Icons.upload_file,
+            onTap: () => _open(const ItemImportScreen()),
           ),
-          Expanded(child: _body(provider)),
+          const SizedBox(width: AppTheme.spaceSm),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _open(const ItemFormScreen()),
         icon: const Icon(Icons.add),
-        label: const Text('Tambah barang'),
+        label: const Text('Tambah'),
       ),
-    );
-  }
-
-  /// A pill-shaped search field: rounded, filled, and with no visible border,
-  /// so it reads as a search box rather than a form field.
-  Widget _searchField(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TextField(
-      controller: _search,
-      onChanged: _onSearchChanged,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: 'Cari nama atau kode barang',
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon: _search.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Bersihkan pencarian',
-                onPressed: _clearSearch,
-                icon: const Icon(Icons.close),
+      body: ContentWidth(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceMd,
+                AppTheme.spaceSm,
+                AppTheme.spaceMd,
+                AppTheme.spaceSm,
               ),
-        filled: true,
-        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide(color: scheme.primary, width: 2),
+              child: SearchField(
+                controller: _search,
+                hintText: 'Cari nama atau kode barang',
+                onChanged: _onSearchChanged,
+                onClear: _clearSearch,
+              ),
+            ),
+            Expanded(child: _body(provider)),
+          ],
         ),
       ),
     );
@@ -135,8 +136,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
     }
 
     if (items.isEmpty) {
-      // The spinner only replaces the screen while there is nothing to show;
-      // a refresh keeps the previous rows visible.
+      // Spinner hanya menggantikan layar saat belum ada isi; penyegaran tetap
+      // menampilkan baris sebelumnya.
       if (provider.isLoading) {
         return const Center(child: CircularProgressIndicator());
       }
@@ -145,62 +146,56 @@ class _ItemListScreenState extends State<ItemListScreen> {
           icon: Icons.search_off,
           title: 'Barang tidak ditemukan',
           message: 'Tidak ada barang yang cocok dengan "${provider.query}".',
-          action: OutlinedButton(
-            onPressed: _clearSearch,
-            child: const Text('Bersihkan pencarian'),
-          ),
+          actions: [
+            OutlinedButton(
+              onPressed: _clearSearch,
+              child: const Text('Bersihkan pencarian'),
+            ),
+          ],
         );
       }
       return EmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Belum ada barang',
-        message:
-            'Tambahkan barang satu per satu, atau impor dari file Excel/CSV.',
-        action: FilledButton.icon(
-          onPressed: () => _open(const ItemImportScreen()),
-          icon: const Icon(Icons.upload_file),
-          label: const Text('Impor dari berkas'),
-        ),
+        message: 'Tambahkan barang satu per satu, atau impor dari file '
+            'Excel/CSV.',
+        actions: [
+          FilledButton.icon(
+            onPressed: () => _open(const ItemImportScreen()),
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Impor dari berkas'),
+          ),
+          OutlinedButton.icon(
+            onPressed: () => _open(const ItemFormScreen()),
+            icon: const Icon(Icons.add),
+            label: const Text('Tambah manual'),
+          ),
+        ],
       );
     }
 
     return RefreshIndicator(
       onRefresh: () => context.read<ItemProvider>().load(),
-      child: ListView.builder(
+      child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(
-          AppTheme.gap,
-          8,
-          AppTheme.gap,
-          96,
+          AppTheme.spaceMd,
+          0,
+          AppTheme.spaceMd,
+          AppTheme.spaceBottomBar,
         ),
-        itemCount: items.length + 1,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: AppTheme.space10),
         itemBuilder: (context, index) {
-          if (index == 0) {
-            return _countLabel(items.length, isSearching);
-          }
-          final item = items[index - 1];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _ItemCard(
-              key: ValueKey(item.id),
-              item: item,
-              onTap: () => _open(ItemFormScreen(item: item)),
-            ),
+          final item = items[index];
+          return _ItemCard(
+            key: ValueKey(item.id),
+            item: item,
+            onTap: () => _open(ItemFormScreen(item: item)),
           );
         },
       ),
     );
   }
-
-  Widget _countLabel(int count, bool isSearching) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          isSearching ? '$count hasil' : '$count barang',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-      );
 
   Future<void> _open(Widget screen) async {
     await Navigator.of(context).push(
@@ -209,8 +204,8 @@ class _ItemListScreenState extends State<ItemListScreen> {
   }
 }
 
-/// One item as a card: a leading tile, the name and code, and a stock badge that
-/// turns red once nothing is left.
+/// Satu barang sebagai kartu: nama dan kode, plus badge stok yang memerah saat
+/// barang habis.
 class _ItemCard extends StatelessWidget {
   const _ItemCard({super.key, required this.item, required this.onTap});
 
@@ -219,14 +214,16 @@ class _ItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     return Card(
+      color: AppTheme.cardSolid,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        side: const BorderSide(color: AppTheme.outlineVariant),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppTheme.space12),
           child: Row(
             children: [
               Container(
@@ -234,38 +231,48 @@ class _ItemCard extends StatelessWidget {
                 height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTheme.chip,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.straighten,
-                  color: scheme.onSecondaryContainer,
+                  size: 20,
+                  color: AppTheme.link,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTheme.space12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       item.name,
-                      style: theme.textTheme.titleSmall,
+                      style: AppText.style(
+                        size: 14,
+                        weight: 600,
+                        color: AppTheme.ink,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (item.code != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: AppTheme.space2),
                       Text(
                         item.code!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                        style: AppText.style(
+                          size: 12,
+                          weight: 400,
+                          color: AppTheme.muted,
+                        ).copyWith(height: 1.4),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppTheme.spaceSm),
                     Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                      spacing: AppTheme.space6,
+                      runSpacing: AppTheme.space6,
                       children: [
                         _StockBadge(item: item),
                         if (item.brand != null) _Tag(item.brand!),
@@ -275,7 +282,8 @@ class _ItemCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: scheme.outline),
+              const SizedBox(width: AppTheme.spaceSm),
+              const Icon(Icons.chevron_right, size: 22, color: AppTheme.muted),
             ],
           ),
         ),
@@ -284,7 +292,7 @@ class _ItemCard extends StatelessWidget {
   }
 }
 
-/// Available-over-total, coloured red when the item is fully out.
+/// Tersedia dari total, memerah saat barang habis sepenuhnya.
 class _StockBadge extends StatelessWidget {
   const _StockBadge({required this.item});
 
@@ -292,27 +300,25 @@ class _StockBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final empty = item.stockAvailable == 0;
-    final background =
-        empty ? scheme.errorContainer : scheme.primaryContainer;
-    final foreground =
-        empty ? scheme.onErrorContainer : scheme.onPrimaryContainer;
-
-    return _Pill(
-      background: background,
-      foreground: foreground,
-      icon: empty ? Icons.block : Icons.inventory_2_outlined,
+    return StatusPill(
       label: empty
           ? 'Habis'
           : 'Tersedia ${item.stockAvailable}/${item.stockTotal}',
-      bold: true,
+      icon: empty ? Icons.block : Icons.inventory_2_outlined,
+      background: empty ? AppTheme.dangerSoft : AppTheme.okSoft,
+      foreground: empty ? AppTheme.danger : AppTheme.ok,
+      upper: false,
+      fontSize: 11,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space10,
+        vertical: AppTheme.spaceXs,
+      ),
     );
   }
 }
 
-/// A quiet label for the optional fields, so they do not compete with stock.
+/// Label tenang untuk bidang opsional, supaya tidak bersaing dengan stok.
 class _Tag extends StatelessWidget {
   const _Tag(this.text);
 
@@ -320,53 +326,15 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return _Pill(
-      background: scheme.surfaceContainerHighest,
-      foreground: scheme.onSurfaceVariant,
+    return StatusPill(
       label: text,
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({
-    required this.background,
-    required this.foreground,
-    required this.label,
-    this.icon,
-    this.bold = false,
-  });
-
-  final Color background;
-  final Color foreground;
-  final String label;
-  final IconData? icon;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 13, color: foreground),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: foreground,
-                  fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-                ),
-          ),
-        ],
+      background: AppTheme.surfaceContainerLow,
+      foreground: AppTheme.muted,
+      upper: false,
+      fontSize: 11,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.space10,
+        vertical: AppTheme.spaceXs,
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/dates.dart';
 import '../core/formatters.dart';
@@ -8,15 +9,18 @@ import '../models/loan.dart';
 import '../models/loan_detail.dart';
 import '../providers/loan_provider.dart';
 import '../services/loan_export_service.dart';
+import '../widgets/app_background.dart';
+import '../widgets/app_chrome.dart';
+import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import '../widgets/status_chip.dart';
 import 'loan_detail_screen.dart';
 import 'loan_form_screen.dart';
 
-/// FR-L5, FR-L6, and export: every loan with the borrower, the item, the dates,
-/// and the derived status, newest first. The status filter accepts several
-/// values at once, and no selection means every status.
+/// FR-L5, FR-L6, dan ekspor: setiap peminjaman beserta peminjam, barang,
+/// tanggal, dan status turunannya, terbaru lebih dulu. Filter status menerima
+/// beberapa nilai sekaligus, dan tanpa pilihan berarti semua status.
 class LoanListScreen extends StatelessWidget {
   const LoanListScreen({super.key});
 
@@ -25,61 +29,93 @@ class LoanListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LoanProvider>();
+    final loans = provider.loans;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Peminjaman'),
-        actions: [
-          IconButton(
-            tooltip: 'Ekspor riwayat',
-            onPressed: provider.loans.isEmpty
-                ? null
-                : () => _export(context, provider.loans),
-            icon: const Icon(Icons.file_download_outlined),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTheme.gap,
-              0,
-              AppTheme.gap,
-              8,
+        toolbarHeight: 66,
+        titleSpacing: AppTheme.spaceMd,
+        automaticallyImplyLeading: false,
+        flexibleSpace: appBarScrim(),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Peminjaman',
+              style: AppText.style(size: 20, weight: 700, color: AppTheme.ink),
             ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _filters(context, provider),
+            Text(
+              provider.isLoading && loans.isEmpty
+                  ? 'Memuat…'
+                  : '${loans.length} peminjaman',
+              style: AppText.style(
+                size: 12,
+                weight: 500,
+                color: AppTheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          ],
         ),
+        actions: [
+          RoundIconButton(
+            tooltip: 'Ekspor riwayat',
+            icon: Icons.ios_share,
+            onTap: loans.isEmpty ? null : () => _export(context, loans),
+          ),
+          const SizedBox(width: AppTheme.spaceSm),
+        ],
       ),
-      body: _body(context, provider),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openForm(context),
         icon: const Icon(Icons.add),
         label: const Text('Catat pinjam'),
       ),
+      body: ContentWidth(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceMd,
+                AppTheme.spaceSm,
+                AppTheme.spaceMd,
+                AppTheme.spaceSm,
+              ),
+              child: SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _filters(context, provider),
+                ),
+              ),
+            ),
+            Expanded(child: _body(context, provider)),
+          ],
+        ),
+      ),
     );
   }
 
-  /// "Semua" clears the filter; the status chips toggle on and off, so several
-  /// can be shown together.
-  Widget _filters(BuildContext context, LoanProvider provider) {
+  /// "Semua" mengosongkan filter; chip status menyala-mati, jadi beberapa
+  /// status bisa tampil bersamaan.
+  List<Widget> _filters(BuildContext context, LoanProvider provider) {
     final selected = provider.statusFilters;
-    return Wrap(
-      spacing: 8,
-      children: [
-        FilterChip(
-          label: const Text('Semua'),
-          selected: selected.isEmpty,
-          onSelected: (_) => context.read<LoanProvider>().filterBy(const {}),
+    return [
+      Padding(
+        padding: const EdgeInsets.only(right: AppTheme.spaceSm),
+        child: FilterPill(
+          label: 'Semua',
+          aktif: selected.isEmpty,
+          onTap: () => context.read<LoanProvider>().filterBy(const {}),
         ),
-        for (final status in LoanStatus.values)
-          FilterChip(
-            label: Text(_statusLabel(status)),
-            selected: selected.contains(status),
-            onSelected: (_) {
+      ),
+      for (final status in LoanStatus.values)
+        Padding(
+          padding: const EdgeInsets.only(right: AppTheme.spaceSm),
+          child: FilterPill(
+            label: _statusLabel(status),
+            aktif: selected.contains(status),
+            onTap: () {
               final next = {...selected};
               if (!next.add(status)) {
                 next.remove(status);
@@ -87,8 +123,8 @@ class LoanListScreen extends StatelessWidget {
               context.read<LoanProvider>().filterBy(next);
             },
           ),
-      ],
-    );
+        ),
+    ];
   }
 
   Widget _body(BuildContext context, LoanProvider provider) {
@@ -110,45 +146,47 @@ class LoanListScreen extends StatelessWidget {
           icon: Icons.filter_alt_off_outlined,
           title: 'Tidak ada peminjaman di filter ini',
           message: 'Pilih "Semua" untuk melihat seluruh riwayat peminjaman.',
-          action: OutlinedButton(
-            onPressed: () => context.read<LoanProvider>().filterBy(const {}),
-            child: const Text('Lihat semua'),
-          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => context.read<LoanProvider>().filterBy(const {}),
+              child: const Text('Lihat semua'),
+            ),
+          ],
         );
       }
       return EmptyState(
         icon: Icons.assignment_outlined,
         title: 'Belum ada peminjaman',
         message: 'Catat peminjaman pertama lewat tombol di bawah.',
-        action: FilledButton.icon(
-          onPressed: () => _openForm(context),
-          icon: const Icon(Icons.add),
-          label: const Text('Catat pinjam'),
-        ),
+        actions: [
+          FilledButton.icon(
+            onPressed: () => _openForm(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Catat pinjam'),
+          ),
+        ],
       );
     }
 
     return RefreshIndicator(
       onRefresh: () => context.read<LoanProvider>().load(),
-      child: ListView.builder(
+      child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(
-          AppTheme.gap,
-          8,
-          AppTheme.gap,
-          96,
+          AppTheme.spaceMd,
+          0,
+          AppTheme.spaceMd,
+          AppTheme.spaceBottomBar,
         ),
         itemCount: loans.length,
+        separatorBuilder: (_, _) => const SizedBox(height: AppTheme.space10),
         itemBuilder: (context, index) {
           final detail = loans[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _LoanCard(
-              key: ValueKey(detail.loan.id),
-              detail: detail,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => LoanDetailScreen(detail: detail),
-                ),
+          return _LoanCard(
+            key: ValueKey(detail.loan.id),
+            detail: detail,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => LoanDetailScreen(detail: detail),
               ),
             ),
           );
@@ -162,31 +200,55 @@ class LoanListScreen extends StatelessWidget {
         LoanStatus.returned => 'Selesai',
       };
 
-  /// Exports exactly what the list is showing, so the filter also decides what
-  /// lands in the file.
+  /// Mengekspor persis apa yang sedang tampil, jadi filter juga menentukan isi
+  /// berkasnya.
   Future<void> _export(BuildContext context, List<LoanDetail> loans) async {
     final format = await showModalBottomSheet<LoanExportFormat>(
       context: context,
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              title: const Text('Ekspor riwayat peminjaman'),
-              subtitle: Text('${loans.length} peminjaman akan diekspor.'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceMd,
+                0,
+                AppTheme.spaceMd,
+                AppTheme.spaceSm,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ekspor riwayat peminjaman',
+                    style: AppText.headlineSm.copyWith(fontSize: 16),
+                  ),
+                  const SizedBox(height: AppTheme.space2),
+                  Text(
+                    '${loans.length} peminjaman akan diekspor.',
+                    style: AppText.bodySm.copyWith(
+                      color: AppTheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const Divider(height: 1),
             for (final option in LoanExportFormat.values)
               ListTile(
                 leading: Icon(
                   option == LoanExportFormat.excel
-                      ? Icons.table_chart_outlined
-                      : Icons.description_outlined,
+                      ? Icons.grid_on
+                      : Icons.table_chart_outlined,
+                  color: AppTheme.primary,
                 ),
-                title: Text(option.label),
+                title: Text(
+                  option.label,
+                  style: AppText.labelMd.copyWith(color: AppTheme.onSurface),
+                ),
                 onTap: () => Navigator.of(sheetContext).pop(option),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppTheme.spaceSm),
           ],
         ),
       ),
@@ -226,7 +288,7 @@ class LoanListScreen extends StatelessWidget {
   }
 }
 
-/// One loan as a card: who borrowed what, when it is due, and the status chip.
+/// Satu peminjaman sebagai kartu: siapa meminjam apa, sampai kapan, dan status.
 class _LoanCard extends StatelessWidget {
   const _LoanCard({super.key, required this.detail, required this.onTap});
 
@@ -235,14 +297,18 @@ class _LoanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final loan = detail.loan;
 
     return Card(
+      color: AppTheme.cardSolid,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        side: const BorderSide(color: AppTheme.outlineVariant),
+      ),
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppTheme.space12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -251,24 +317,26 @@ class _LoanCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       loan.borrowerName,
-                      style: theme.textTheme.titleSmall,
+                      style: AppText.style(
+                        size: 14,
+                        weight: 600,
+                        color: AppTheme.ink,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppTheme.spaceSm),
                   StatusChip(loan: loan),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTheme.spaceSm),
               _line(
-                context,
                 Icons.straighten,
                 '${detail.item.name} · ${loan.quantity} unit',
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppTheme.spaceXs),
               _line(
-                context,
                 Icons.event_outlined,
                 '${formatDisplayDate(loan.loanDate)} → '
                     '${formatDisplayDate(loan.dueDate)}',
@@ -280,18 +348,19 @@ class _LoanCard extends StatelessWidget {
     );
   }
 
-  Widget _line(BuildContext context, IconData icon, String text) {
-    final theme = Theme.of(context);
+  Widget _line(IconData icon, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 8),
+        Icon(icon, size: 16, color: AppTheme.muted),
+        const SizedBox(width: AppTheme.spaceSm),
         Expanded(
           child: Text(
             text,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: AppText.style(
+              size: 12.5,
+              weight: 500,
+              color: AppTheme.muted,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

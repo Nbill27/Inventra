@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/dates.dart';
 import '../core/formatters.dart';
@@ -9,14 +10,17 @@ import '../models/item.dart';
 import '../models/loan.dart';
 import '../providers/item_provider.dart';
 import '../providers/loan_provider.dart';
+import '../widgets/app_background.dart';
+import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/section_title.dart';
+import '../widgets/panel.dart';
+import '../widgets/section_header.dart';
 
-/// Serves both "catat peminjaman" (FR-L2) and "ubah peminjaman" (FR-L8).
+/// Melayani "catat peminjaman" (FR-L2) dan "ubah peminjaman" (FR-L8).
 class LoanFormScreen extends StatefulWidget {
   const LoanFormScreen({super.key, this.loan});
 
-  /// Null means create mode.
+  /// Null berarti mode tambah.
   final Loan? loan;
 
   @override
@@ -30,9 +34,9 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   late final TextEditingController _quantity;
   late final TextEditingController _note;
 
-  /// Items are read through the provider but never from the list screen's
-  /// filtered copy, because a search left over from the Barang tab would hide
-  /// the item that is about to be borrowed.
+  /// Barang dibaca lewat provider, bukan dari salinan yang sudah difilter layar
+  /// daftar: pencarian yang tersisa di tab Barang bisa menyembunyikan barang
+  /// yang justru mau dipinjam.
   late final Future<List<Item>> _items =
       context.read<ItemProvider>().allItems();
 
@@ -41,8 +45,9 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   late DateTime _dueDate;
   bool _saving = false;
 
-  /// FR-L8: a finished loan keeps its item and quantity, so the form freezes
-  /// them instead of letting the admin type something the repository rejects.
+  /// FR-L8: peminjaman yang sudah selesai menyimpan barang dan jumlahnya, jadi
+  /// form membekukan keduanya alih-alih membiarkan admin mengetik nilai yang
+  /// akan ditolak repository.
   bool get _isLocked => widget.loan?.status == LoanStatus.returned;
 
   @override
@@ -75,6 +80,18 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
         title: Text(
           widget.loan == null ? 'Tambah Peminjaman' : 'Ubah Peminjaman',
         ),
+        flexibleSpace: appBarScrim(),
+      ),
+      bottomNavigationBar: FutureBuilder<List<Item>>(
+        future: _items,
+        builder: (context, snapshot) {
+          final items = snapshot.data ?? const <Item>[];
+          if (snapshot.connectionState != ConnectionState.done ||
+              items.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return _saveBar(items);
+        },
       ),
       body: FutureBuilder<List<Item>>(
         future: _items,
@@ -89,10 +106,12 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
               title: 'Belum ada barang',
               message: 'Tambahkan barang dulu di tab Barang, baru peminjaman '
                   'bisa dicatat.',
-              action: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Kembali'),
-              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Kembali'),
+                ),
+              ],
             );
           }
           return _form(items);
@@ -102,140 +121,206 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   }
 
   Widget _form(List<Item> items) {
-    final theme = Theme.of(context);
     final selectedId = _itemId ?? items.first.id;
 
     return Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppTheme.gap,
-          AppTheme.gap,
-          AppTheme.gap,
-          32,
-        ),
-        children: [
-          if (_isLocked) ...[
-            _notice(
-              'Peminjaman ini sudah selesai, jadi barang dan jumlahnya tidak '
-              'bisa diubah lagi agar riwayat stok tetap benar.',
-            ),
-            const SizedBox(height: AppTheme.gap),
-          ],
-
-          const SectionTitle(
-            icon: Icons.person_outline,
-            label: 'Barang & peminjam',
+      child: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceMd,
+            AppTheme.spaceSm,
+            AppTheme.spaceMd,
+            AppTheme.spaceLg,
           ),
-          InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Barang',
-              helperText: 'Angka dalam kurung adalah stok yang bisa dipinjam.',
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: items.any((item) => item.id == selectedId)
-                    ? selectedId
-                    : null,
-                isExpanded: true,
-                isDense: true,
-                onChanged: _isLocked
-                    ? null
-                    : (value) => setState(() => _itemId = value),
-                items: [
-                  for (final item in items)
-                    DropdownMenuItem<int>(
-                      value: item.id,
-                      child: Text(
-                        '${item.name} (${_availableFor(item)} tersedia)',
-                        overflow: TextOverflow.ellipsis,
+          children: [
+            if (_isLocked) ...[
+              _notice(
+                'Peminjaman ini sudah selesai, jadi barang dan jumlahnya tidak '
+                'bisa diubah lagi agar riwayat stok tetap benar.',
+              ),
+              const SizedBox(height: AppTheme.spaceMd),
+            ],
+
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const GroupLabel(
+                    icon: Icons.person_outline,
+                    label: 'Barang & peminjam',
+                  ),
+                  const SizedBox(height: AppTheme.spaceMd),
+                  InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Barang',
+                      prefixIcon: Icon(Icons.inventory_2_outlined),
+                      helperText:
+                          'Angka dalam kurung adalah stok yang bisa dipinjam.',
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: items.any((item) => item.id == selectedId)
+                            ? selectedId
+                            : null,
+                        isExpanded: true,
+                        isDense: true,
+                        onChanged: _isLocked
+                            ? null
+                            : (value) => setState(() => _itemId = value),
+                        items: [
+                          for (final item in items)
+                            DropdownMenuItem<int>(
+                              value: item.id,
+                              child: Text(
+                                '${item.name} (${_availableFor(item)} tersedia)',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
+                  ),
+                  const SizedBox(height: AppTheme.space12),
+                  TextFormField(
+                    controller: _borrower,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama peminjam *',
+                      hintText: 'mis. Rani - XI RPL 1',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (value) => _requiredText(value, 'Nama peminjam'),
+                  ),
+                  const SizedBox(height: AppTheme.space12),
+                  TextFormField(
+                    controller: _contact,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Kontak',
+                      hintText: 'nomor HP atau kelas',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: AppTheme.gap),
-          TextFormField(
-            controller: _borrower,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Nama peminjam',
-              helperText: 'Wajib. Contoh: Rani - XI RPL 1',
-            ),
-            validator: (value) => _requiredText(value, 'Nama peminjam'),
-          ),
-          const SizedBox(height: AppTheme.gap),
-          TextFormField(
-            controller: _contact,
-            keyboardType: TextInputType.phone,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Kontak',
-              helperText: 'Opsional. Nomor HP atau kelas.',
-            ),
-          ),
+            const SizedBox(height: AppTheme.spaceMd),
 
-          const SizedBox(height: 28),
-          const SectionTitle(
-            icon: Icons.event_outlined,
-            label: 'Jumlah & tanggal',
-          ),
-          TextFormField(
-            controller: _quantity,
-            enabled: !_isLocked,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Jumlah pinjam',
-              helperText: 'Wajib. Satu peminjaman hanya untuk satu jenis barang.',
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const GroupLabel(
+                    icon: Icons.event_outlined,
+                    label: 'Jumlah & tanggal',
+                  ),
+                  const SizedBox(height: AppTheme.spaceMd),
+                  TextFormField(
+                    controller: _quantity,
+                    enabled: !_isLocked,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Jumlah pinjam *',
+                      prefixIcon: Icon(Icons.numbers),
+                      helperText:
+                          'Satu peminjaman hanya untuk satu jenis barang.',
+                    ),
+                    validator: (value) => _quantityValidator(value, items),
+                  ),
+                  const SizedBox(height: AppTheme.space12),
+                  _dateTile(
+                    label: 'Tanggal pinjam',
+                    value: _loanDate,
+                    onTap: _pickLoanDate,
+                  ),
+                  const SizedBox(height: AppTheme.space12),
+                  _dateTile(
+                    label: 'Tanggal kembali rencana',
+                    value: _dueDate,
+                    onTap: _pickDueDate,
+                    helper:
+                        'Melewati tanggal ini, status berubah jadi Terlambat.',
+                  ),
+                ],
+              ),
             ),
-            validator: (value) => _quantityValidator(value, items),
-          ),
-          const SizedBox(height: AppTheme.gap),
-          _dateTile(
-            label: 'Tanggal pinjam',
-            value: _loanDate,
-            onTap: _pickLoanDate,
-          ),
-          const SizedBox(height: AppTheme.gap),
-          _dateTile(
-            label: 'Tanggal kembali rencana',
-            value: _dueDate,
-            onTap: _pickDueDate,
-            helper: 'Melewati tanggal ini, status berubah jadi Terlambat.',
-          ),
+            const SizedBox(height: AppTheme.spaceMd),
 
-          const SizedBox(height: 28),
-          const SectionTitle(
-            icon: Icons.notes_outlined,
-            label: 'Catatan',
-          ),
-          TextFormField(
-            controller: _note,
-            minLines: 3,
-            maxLines: 5,
-            textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(
-              labelText: 'Catatan',
-              helperText: 'Opsional. Contoh: untuk kegiatan class meeting.',
-              alignLabelWithHint: true,
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const GroupLabel(
+                    icon: Icons.notes_outlined,
+                    label: 'Catatan',
+                  ),
+                  const SizedBox(height: AppTheme.spaceMd),
+                  TextFormField(
+                    controller: _note,
+                    minLines: 3,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    decoration: const InputDecoration(
+                      labelText: 'Catatan',
+                      hintText: 'mis. untuk kegiatan class meeting',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(height: 28),
-          FilledButton(
+  /// Tombol simpan di bar bawah, tetap dalam jangkauan jempol.
+  Widget _saveBar(List<Item> items) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTheme.cardSolid,
+        border: Border(top: BorderSide(color: AppTheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceMd),
+          child: FilledButton.icon(
             onPressed: _saving ? null : () => _submit(items),
-            child: Text(_saving ? 'Menyimpan...' : 'Simpan'),
+            icon: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.onPrimary,
+                    ),
+                  )
+                : const Icon(Icons.save),
+            label: Text(_saving ? 'Menyimpan…' : 'Simpan'),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Stok berkurang otomatis saat disimpan, dan kembali saat peminjaman '
-            'ditandai selesai atau dihapus.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Widget _notice(String message) {
+    return Panel(
+      fill: AppTheme.surfaceContainerLow,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_outline, color: AppTheme.onSurfaceVariant),
+          const SizedBox(width: AppTheme.space12),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.bodyMd.copyWith(color: AppTheme.onSurfaceVariant),
             ),
           ),
         ],
@@ -243,26 +328,8 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     );
   }
 
-  Widget _notice(String message) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.lock_outline, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// A read-only field that opens the date picker, so it looks like every other
-  /// input in the form instead of a bare text row.
+  /// Bidang baca-saja yang membuka pemilih tanggal, supaya bentuknya sama
+  /// dengan input lain di form, bukan baris teks polos.
   Widget _dateTile({
     required String label,
     required DateTime value,
@@ -271,14 +338,17 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   }) =>
       InkWell(
         onTap: _saving ? null : onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
             helperText: helper,
-            suffixIcon: const Icon(Icons.calendar_today, size: 18),
+            prefixIcon: const Icon(Icons.calendar_today),
           ),
-          child: Text(formatDisplayDate(value)),
+          child: Text(
+            formatDisplayDate(value),
+            style: AppText.style(size: 14, weight: 500, color: AppTheme.ink),
+          ),
         ),
       );
 
@@ -292,8 +362,8 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     return null;
   }
 
-  /// Units of this same loan are released before the new quantity is checked,
-  /// which mirrors what the repository does inside its transaction.
+  /// Unit dari peminjaman ini dilepas lebih dulu sebelum jumlah baru diperiksa,
+  /// sama seperti yang dilakukan repository di dalam transaksinya.
   int _availableFor(Item item) {
     final existing = widget.loan;
     final own = existing != null &&
@@ -354,8 +424,8 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     }
     setState(() {
       _loanDate = dateOnly(picked);
-      // Keeping the due date after the loan date saves the admin one step and
-      // avoids a pair of dates the repository would refuse.
+      // Menjaga tanggal kembali tetap setelah tanggal pinjam menghemat satu
+      // langkah admin dan menghindari pasangan tanggal yang ditolak repository.
       if (isBeforeDay(_dueDate, _loanDate)) {
         _dueDate = _loanDate;
       }
@@ -401,7 +471,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
       loanDate: _loanDate,
       dueDate: _dueDate,
       returnDate: existing?.returnDate,
-      // A new loan always starts as borrowed; the repository enforces this too.
+      // Peminjaman baru selalu mulai sebagai dipinjam; repository juga menegakkan.
       status: existing?.status ?? LoanStatus.borrowed,
       note: _note.text,
     );

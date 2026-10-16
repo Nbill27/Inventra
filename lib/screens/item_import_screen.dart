@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/exceptions.dart';
 import '../models/item_import.dart';
@@ -13,9 +14,13 @@ import '../services/csv_parser.dart';
 import '../services/item_importer.dart';
 import '../services/sheet_reader.dart';
 import '../services/sheet_table.dart';
+import '../widgets/app_background.dart';
+import '../widgets/content_width.dart';
+import '../widgets/panel.dart';
+import '../widgets/section_header.dart';
 
-/// One file already read into memory, so nothing below this line has to touch
-/// the platform file dialog.
+/// Satu berkas yang sudah dibaca ke memori, sehingga tidak ada lagi bagian di
+/// bawah baris ini yang menyentuh dialog berkas platform.
 class PickedFile {
   const PickedFile({required this.fileName, required this.bytes});
 
@@ -23,16 +28,15 @@ class PickedFile {
   final Uint8List bytes;
 }
 
-/// Injectable so the screen can be driven in a test without the system picker.
+/// Bisa disuntik supaya layar dapat dijalankan di test tanpa pemilih sistem.
 typedef ImportFilePicker = Future<PickedFile?> Function();
 
-/// Which reader a picked file goes through. Not every other office format is
-/// readable, so the bytes decide this rather than the file name.
+/// Pembaca mana yang dipakai sebuah berkas. Tidak semua format kantor bisa
+/// dibaca, jadi isi berkas yang menentukan, bukan namanya.
 enum PickedFileFormat { csv, spreadsheet }
 
-/// The real picker: Android opens its document picker, which already grants
-/// read access to the one file that was chosen, so no storage permission is
-/// requested.
+/// Pemilih asli: Android membuka pemilih dokumennya, yang sudah memberi hak
+/// baca pada satu berkas terpilih, jadi tidak ada izin penyimpanan yang diminta.
 Future<PickedFile?> pickImportFileFromDevice() async {
   final file = await FilePicker.pickFile(
     dialogTitle: 'Pilih file data alat ukur',
@@ -45,8 +49,8 @@ Future<PickedFile?> pickImportFileFromDevice() async {
   return PickedFile(fileName: file.name, bytes: await file.readAsBytes());
 }
 
-/// Excel writes CSV in the machine code page rather than UTF-8, so text that is
-/// not valid UTF-8 is read as latin1 instead of rejecting the whole file.
+/// Excel menulis CSV memakai code page mesin, bukan UTF-8, jadi teks yang bukan
+/// UTF-8 valid dibaca sebagai latin1 alih-alih menolak seluruh berkas.
 String decodeText(Uint8List bytes) {
   try {
     return utf8.decode(bytes);
@@ -55,15 +59,15 @@ String decodeText(Uint8List bytes) {
   }
 }
 
-/// Imports the master "Daftar Alat Ukur" file, CSV or Excel.
+/// Mengimpor berkas induk "Daftar Alat Ukur", CSV atau Excel.
 ///
-/// The screen is deliberately short: pick a file, and the columns are read
-/// automatically. Everything technical (sheet, header row, preview) hides under
-/// "Pengaturan lanjutan" so a normal import is just two taps.
+/// Layarnya sengaja pendek: pilih berkas, lalu kolomnya dibaca otomatis.
+/// Semua hal teknis (lembar, baris judul, pratinjau) bersembunyi di balik
+/// "Pengaturan lanjutan" supaya impor normal cukup dua ketukan.
 class ItemImportScreen extends StatefulWidget {
   const ItemImportScreen({super.key, this.picker});
 
-  /// Defaults to the device file dialog.
+  /// Default ke dialog berkas perangkat.
   final ImportFilePicker? picker;
 
   @override
@@ -73,8 +77,8 @@ class ItemImportScreen extends StatefulWidget {
 class _ItemImportScreenState extends State<ItemImportScreen> {
   static const _importer = ItemImporter();
 
-  /// How many header rows the dropdown offers, so a stray wide sheet cannot
-  /// produce a menu with hundreds of entries.
+  /// Berapa baris judul yang ditawarkan dropdown, supaya lembar yang lebar
+  /// tidak menghasilkan menu dengan ratusan entri.
   static const _headerOptions = 60;
 
   final _stockPerRow = TextEditingController(text: '1');
@@ -167,8 +171,8 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     _error = message;
   }
 
-  /// Rebuilds the table. Columns are recognised from the header again, so a
-  /// different sheet, header row, or file is picked up automatically.
+  /// Membangun ulang tabel. Kolom dikenali lagi dari baris judul, jadi berkas,
+  /// baris judul, atau lembar yang berbeda ikut terbaca otomatis.
   void _readTable() {
     _report = null;
     try {
@@ -178,8 +182,8 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
       _table = null;
       _error = error.message;
     }
-    // When nothing can be read yet, open the settings so the header row can be
-    // corrected without hunting for the toggle.
+    // Saat belum ada yang bisa dibaca, buka pengaturan supaya baris judul bisa
+    // diperbaiki tanpa mencari tombolnya.
     if (_table == null || _planFor(_table!) == null) {
       _showAdvanced = true;
     }
@@ -194,8 +198,8 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   CsvTable _readCsv() =>
       parseCsv(decodeText(_file!.bytes), firstRowIsHeader: _firstRowIsHeader);
 
-  /// Null while the file still cannot be read as items, which keeps the summary
-  /// and the import button hidden until there is something to import.
+  /// Null selama berkas belum bisa dibaca sebagai barang, sehingga ringkasan
+  /// dan tombol impor tetap tersembunyi sampai ada yang bisa diimpor.
   ImportPlan? _planFor(CsvTable table) {
     try {
       return _importer.plan(table: table, stockPerRow: _stockPerRowValue);
@@ -204,7 +208,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     }
   }
 
-  /// A negative count is not a stock, so it reads as "not filled in".
+  /// Jumlah negatif bukan stok, jadi dibaca sebagai "belum diisi".
   int? get _stockPerRowValue {
     final value = int.tryParse(_stockPerRow.text.trim());
     return value == null || value < 0 ? null : value;
@@ -245,44 +249,83 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   Widget build(BuildContext context) {
     final report = _report;
     return Scaffold(
-      appBar: AppBar(title: const Text('Impor Barang')),
-      body: report == null ? _setupView() : _reportView(report),
+      appBar: AppBar(
+        title: const Text('Impor Barang'),
+        flexibleSpace: appBarScrim(),
+      ),
+      body: ContentWidth(
+        child: report == null ? _setupView() : _reportView(report),
+      ),
     );
   }
 
   Widget _setupView() {
     final table = _table;
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.gap),
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceMd,
+        AppTheme.spaceSm,
+        AppTheme.spaceMd,
+        AppTheme.spaceLg,
+      ),
       children: [
-        const Text(
-          'Pilih file Excel (.xlsx) atau CSV. Kolom dibaca otomatis, jadi tidak '
-          'perlu atur apa-apa.',
-        ),
-        const SizedBox(height: 16),
         if (_error != null) ...[
-          _errorCard(_error!),
-          const SizedBox(height: 16),
+          _errorPanel(_error!),
+          const SizedBox(height: AppTheme.spaceMd),
         ],
-        FilledButton.icon(
-          onPressed: _busy ? null : _pick,
-          icon: const Icon(Icons.folder_open),
-          label: Text(_file == null ? 'Pilih file' : 'Ganti file'),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Pilih berkas data alat ukur',
+                style: AppText.headlineSm.copyWith(color: AppTheme.ink),
+              ),
+              const SizedBox(height: AppTheme.spaceXs),
+              Text(
+                'Format Excel (.xlsx) atau CSV. Kolom dibaca otomatis, jadi '
+                'tidak perlu atur apa-apa.',
+                style: AppText.bodySm.copyWith(
+                  color: AppTheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: AppTheme.spaceMd),
+              FilledButton.icon(
+                onPressed: _busy ? null : _pick,
+                icon: const Icon(Icons.folder_open),
+                label: Text(_file == null ? 'Pilih file' : 'Ganti file'),
+              ),
+              if (_busy) ...[
+                const SizedBox(height: AppTheme.spaceLg),
+                const Center(child: CircularProgressIndicator()),
+              ],
+            ],
+          ),
         ),
-        if (_busy) ...[
-          const SizedBox(height: 24),
-          const Center(child: CircularProgressIndicator()),
-        ],
         if (_file != null && !_busy) ...[
-          const SizedBox(height: 16),
-          _fileCard(table),
+          const SizedBox(height: AppTheme.spaceMd),
+          _filePanel(table),
           if (table != null) ...[
-            const SizedBox(height: 12),
-            _summaryCard(table),
-            const SizedBox(height: 12),
-            _advancedToggle(),
+            const SizedBox(height: AppTheme.spaceMd),
+            _summaryPanel(table),
+            const SizedBox(height: AppTheme.spaceSm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () =>
+                    setState(() => _showAdvanced = !_showAdvanced),
+                icon: Icon(
+                  _showAdvanced ? Icons.expand_less : Icons.expand_more,
+                ),
+                label: Text(
+                  _showAdvanced
+                      ? 'Sembunyikan pengaturan'
+                      : 'Pengaturan lanjutan',
+                ),
+              ),
+            ),
             if (_showAdvanced) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTheme.spaceSm),
               ..._advancedControls(table),
             ],
           ],
@@ -291,128 +334,129 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     );
   }
 
-  /// The one card that matters: how many items are ready, and the import button.
-  Widget _summaryCard(CsvTable table) {
-    final theme = Theme.of(context);
+  /// Satu panel yang paling penting: berapa barang siap, dan tombol impor.
+  Widget _summaryPanel(CsvTable table) {
     final plan = _planFor(table);
     final hasStockColumn =
         plan?.detected.any((column) => column.label == 'Stok total') ?? false;
 
     if (plan == null) {
-      return Card(
-        color: theme.colorScheme.errorContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.gap),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      return _errorPanel(
+        'Belum bisa diimpor. Pastikan baris judul berisi kolom "NAMA ALAT '
+        'UKUR", dan isi "Stok tiap barang" kalau file tidak punya kolom stok.',
+      );
+    }
+
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Siap diimpor',
+            style: AppText.labelMd.copyWith(color: AppTheme.muted),
+          ),
+          const SizedBox(height: AppTheme.spaceXs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(Icons.error_outline, color: theme.colorScheme.onErrorContainer),
-              const SizedBox(width: 12),
-              Expanded(
+              Text(
+                '${plan.drafts.length}',
+                style: AppText.headlineLg.copyWith(color: AppTheme.ink),
+              ),
+              const SizedBox(width: AppTheme.space6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppTheme.space6),
                 child: Text(
-                  'Belum bisa diimpor. Pastikan baris judul berisi kolom '
-                  '"NAMA ALAT UKUR", dan isi "Stok tiap barang" kalau file tidak '
-                  'punya kolom stok.',
-                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                  'barang',
+                  style: AppText.style(
+                    size: 14,
+                    weight: 600,
+                    color: AppTheme.ink2,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTheme.gap),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.check_circle, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${plan.drafts.length} barang siap diimpor',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-              ],
+          if (plan.issues.isNotEmpty) ...[
+            const SizedBox(height: AppTheme.spaceSm),
+            Text(
+              '${plan.issues.length} baris dilewati:',
+              style: AppText.bodySm.copyWith(color: AppTheme.muted),
             ),
-            if (plan.issues.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('${plan.issues.length} baris dilewati:'),
-              for (final issue in plan.issues.take(5))
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    'Baris ${issue.rowNumber}: ${issue.message}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ),
-              if (plan.issues.length > 5)
-                Text(
-                  '... dan ${plan.issues.length - 5} baris lagi.',
-                  style: theme.textTheme.bodySmall,
-                ),
-            ],
-            if (!hasStockColumn) ...[
-              const SizedBox(height: 12),
-              _stockPerRowField(),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _busy || !plan.canImport ? null : () => _import(plan),
-                icon: const Icon(Icons.download_done),
-                label: Text(
-                  _busy ? 'Mengimpor...' : 'Impor ${plan.drafts.length} barang',
+            for (final issue in plan.issues.take(5))
+              Padding(
+                padding: const EdgeInsets.only(top: AppTheme.space2),
+                child: Text(
+                  'Baris ${issue.rowNumber}: ${issue.message}',
+                  style: AppText.bodySm.copyWith(color: AppTheme.muted),
                 ),
               ),
-            ),
+            if (plan.issues.length > 5)
+              Text(
+                '... dan ${plan.issues.length - 5} baris lagi.',
+                style: AppText.bodySm.copyWith(color: AppTheme.muted),
+              ),
           ],
-        ),
+          if (!hasStockColumn) ...[
+            const SizedBox(height: AppTheme.spaceMd),
+            _stockPerRowField(),
+          ],
+          const SizedBox(height: AppTheme.spaceMd),
+          FilledButton.icon(
+            onPressed: _busy || !plan.canImport ? null : () => _import(plan),
+            icon: const Icon(Icons.download_done),
+            label: Text(
+              _busy ? 'Mengimpor…' : 'Impor ${plan.drafts.length} barang',
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _advancedToggle() => Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
-          icon: Icon(_showAdvanced ? Icons.expand_less : Icons.expand_more),
-          label: Text(
-            _showAdvanced ? 'Sembunyikan pengaturan' : 'Pengaturan lanjutan',
+  /// Semua hal teknis ada di sini, jauh dari jalur impor normal.
+  List<Widget> _advancedControls(CsvTable table) => [
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const GroupLabel(
+                icon: Icons.tune,
+                label: 'Cara membaca berkas',
+              ),
+              const SizedBox(height: AppTheme.spaceSm),
+              if (_format == PickedFileFormat.spreadsheet)
+                ..._sheetControls(),
+              if (_format == PickedFileFormat.csv)
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _firstRowIsHeader,
+                  title: const Text('Baris pertama adalah judul kolom'),
+                  subtitle: const Text('Matikan kalau file langsung berisi data.'),
+                  onChanged: (value) => setState(() {
+                    _firstRowIsHeader = value;
+                    _readTable();
+                  }),
+                ),
+            ],
           ),
         ),
-      );
-
-  /// Everything technical lives here, out of the way of a normal import.
-  List<Widget> _advancedControls(CsvTable table) => [
-        if (_format == PickedFileFormat.spreadsheet) ..._sheetControls(),
-        if (_format == PickedFileFormat.csv)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _firstRowIsHeader,
-            title: const Text('Baris pertama adalah judul kolom'),
-            subtitle: const Text('Matikan kalau file langsung berisi data.'),
-            onChanged: (value) => setState(() {
-              _firstRowIsHeader = value;
-              _readTable();
-            }),
+        const SizedBox(height: AppTheme.spaceMd),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _detectedSection(table),
+              const Divider(height: AppTheme.spaceLg),
+              _preview(table),
+            ],
           ),
-        const SizedBox(height: 8),
-        _detectedSection(table),
-        const SizedBox(height: 8),
-        _preview(table),
+        ),
       ];
 
-  /// Sheet, header row, and where the table ends.
+  /// Lembar, baris judul, dan di mana tabel berakhir.
   List<Widget> _sheetControls() {
     final sheet = _sheets[_sheetIndex];
-    final theme = Theme.of(context);
     return [
       if (_sheets.length > 1)
         _dropdown<int>(
@@ -437,7 +481,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
             DropdownMenuItem<int?>(
               value: i,
               child: Text(
-                'Baris ${i + 1} — ${_rowHint(sheet.grid[i])}',
+                'Baris ${i + 1} - ${_rowHint(sheet.grid[i])}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -465,9 +509,9 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
         _headerRow == null
             ? 'Kolom diberi nama Kolom 1, Kolom 2, dan seterusnya.'
             : 'Judul kolom dibaca dari baris ${_headerRow! + 1}.',
-        style: theme.textTheme.bodySmall,
+        style: AppText.bodySm.copyWith(color: AppTheme.muted),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: AppTheme.spaceSm),
     ];
   }
 
@@ -479,44 +523,80 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     return filled.isEmpty ? 'kosong' : filled.join(' | ');
   }
 
-  Widget _errorCard(String message) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.error_outline, color: scheme.onErrorContainer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: TextStyle(color: scheme.onErrorContainer),
+  Widget _errorPanel(String message) {
+    return Panel(
+      fill: AppTheme.errorContainer,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: AppTheme.onErrorContainer),
+          const SizedBox(width: AppTheme.space12),
+          Expanded(
+            child: Text(
+              message,
+              style: AppText.bodySm.copyWith(
+                color: AppTheme.onErrorContainer,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _fileCard(CsvTable? table) => Card(
-        child: ListTile(
-          leading: Icon(
-            _format == PickedFileFormat.spreadsheet
-                ? Icons.table_chart_outlined
-                : Icons.description_outlined,
+  Widget _filePanel(CsvTable? table) {
+    return Panel(
+      padding: const EdgeInsets.all(AppTheme.space12),
+      child: Row(
+        children: [
+          Container(
+            width: AppTheme.touch,
+            height: AppTheme.touch,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppTheme.chip,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+            ),
+            child: Icon(
+              _format == PickedFileFormat.spreadsheet
+                  ? Icons.grid_on
+                  : Icons.description_outlined,
+              size: 20,
+              color: AppTheme.link,
+            ),
           ),
-          title: Text(_file?.fileName ?? 'Berkas'),
-          subtitle: Text(
-            table == null
-                ? 'Belum ada baris data yang bisa dibaca dengan pengaturan ini.'
-                : '${table.rows.length} baris data, ${table.columnCount} kolom',
+          const SizedBox(width: AppTheme.space12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _file?.fileName ?? 'Berkas',
+                  style: AppText.style(
+                    size: 13.5,
+                    weight: 600,
+                    color: AppTheme.ink,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppTheme.space2),
+                Text(
+                  table == null
+                      ? 'Belum ada baris data yang bisa dibaca dengan '
+                          'pengaturan ini.'
+                      : '${table.rows.length} baris data, '
+                          '${table.columnCount} kolom',
+                  style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                ),
+              ],
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    );
+  }
 
   Widget _dropdown<T>({
     required String label,
@@ -525,7 +605,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     required ValueChanged<T?> onChanged,
   }) =>
       Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: AppTheme.space12),
         child: InputDecorator(
           decoration: InputDecoration(labelText: label, isDense: true),
           child: DropdownButtonHideUnderline(
@@ -540,37 +620,39 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
         ),
       );
 
-  /// Shows which file columns were recognised, so the admin can confirm the
-  /// header row is right.
+  /// Menampilkan kolom berkas mana yang dikenali, supaya admin bisa memastikan
+  /// baris judulnya sudah benar.
   Widget _detectedSection(CsvTable table) {
-    final theme = Theme.of(context);
     final plan = _planFor(table);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Kolom terdeteksi', style: theme.textTheme.titleSmall),
-        const SizedBox(height: 4),
+        Text(
+          'Kolom terdeteksi',
+          style: AppText.style(size: 13.5, weight: 600, color: AppTheme.ink),
+        ),
+        const SizedBox(height: AppTheme.spaceSm),
         if (plan == null)
           Text(
             'Kolom "NAMA ALAT UKUR" belum terbaca. Periksa baris judul di atas.',
-            style: theme.textTheme.bodyMedium,
+            style: AppText.bodySm.copyWith(color: AppTheme.muted),
           )
         else ...[
           for (final column in plan.detected)
             Padding(
-              padding: const EdgeInsets.only(bottom: 2),
+              padding: const EdgeInsets.only(bottom: AppTheme.space2),
               child: Text(
-                '${column.label}  ←  ${column.header}',
-                style: theme.textTheme.bodySmall,
+                '${column.label}  <-  ${column.header}',
+                style: AppText.bodySm.copyWith(color: AppTheme.ink2),
               ),
             ),
           if (!plan.detected.any((column) => column.label == 'Stok total'))
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: AppTheme.spaceXs),
               child: Text(
                 'File tidak punya kolom stok, jadi stok diambil dari "Stok tiap '
                 'barang" di atas.',
-                style: theme.textTheme.bodySmall,
+                style: AppText.bodySm.copyWith(color: AppTheme.muted),
               ),
             ),
         ],
@@ -586,66 +668,134 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
           labelText: 'Stok tiap barang',
           helperText:
               'File tidak punya kolom stok. Isi 1 kalau tiap barang satu unit.',
-          isDense: true,
         ),
         onChanged: (_) => setState(() {}),
       );
 
   Widget _preview(CsvTable table) {
-    final theme = Theme.of(context);
     final head = table.rows.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Contoh isi file', style: theme.textTheme.titleSmall),
-        const SizedBox(height: 4),
+        Text(
+          'Contoh isi file',
+          style: AppText.style(size: 13.5, weight: 600, color: AppTheme.ink),
+        ),
+        const SizedBox(height: AppTheme.spaceSm),
         for (var i = 0; i < head.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.only(bottom: AppTheme.spaceXs),
             child: Text(
               '${i + 1}. ${head[i].join(' | ')}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
+              style: AppText.bodySm.copyWith(color: AppTheme.muted),
             ),
           ),
         if (table.rows.length > head.length)
           Text(
             '... dan ${table.rows.length - head.length} baris lain.',
-            style: theme.textTheme.bodySmall,
+            style: AppText.bodySm.copyWith(color: AppTheme.muted),
           ),
       ],
     );
   }
 
   Widget _reportView(ImportReport report) {
-    final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.gap),
+      padding: const EdgeInsets.fromLTRB(
+        AppTheme.spaceMd,
+        AppTheme.spaceSm,
+        AppTheme.spaceMd,
+        AppTheme.spaceLg,
+      ),
       children: [
-        Text('Hasil impor', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
-        _stat('Ditambahkan', report.added),
-        _stat('Dilewati karena kode sudah ada', report.skipped.length),
-        _stat('Gagal karena data tidak valid', report.issues.length),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Hasil impor',
+                style: AppText.headlineSm.copyWith(color: AppTheme.ink),
+              ),
+              const SizedBox(height: AppTheme.spaceMd),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${report.added}',
+                    style: AppText.headlineLg.copyWith(color: AppTheme.ink),
+                  ),
+                  const SizedBox(width: AppTheme.space6),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.space6),
+                    child: Text(
+                      'barang ditambahkan',
+                      style: AppText.style(
+                        size: 14,
+                        weight: 600,
+                        color: AppTheme.ink2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.spaceMd),
+              const Divider(),
+              _statRow('Dilewati karena kode sudah ada', report.skipped.length),
+              _statRow('Gagal karena data tidak valid', report.issues.length),
+            ],
+          ),
+        ),
         if (report.skipped.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Dilewati', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          for (final name in report.skipped.take(20)) Text('- $name'),
-          if (report.skipped.length > 20)
-            Text('... dan ${report.skipped.length - 20} nama lain.'),
+          const SizedBox(height: AppTheme.spaceMd),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(title: 'Dilewati'),
+                for (final name in report.skipped.take(20))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.space2),
+                    child: Text(
+                      '- $name',
+                      style: AppText.bodySm.copyWith(color: AppTheme.ink2),
+                    ),
+                  ),
+                if (report.skipped.length > 20)
+                  Text(
+                    '... dan ${report.skipped.length - 20} nama lain.',
+                    style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                  ),
+              ],
+            ),
+          ),
         ],
         if (report.issues.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Gagal', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          for (final issue in report.issues.take(20))
-            Text('Baris ${issue.rowNumber}: ${issue.message}'),
-          if (report.issues.length > 20)
-            Text('... dan ${report.issues.length - 20} masalah lain.'),
+          const SizedBox(height: AppTheme.spaceMd),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(title: 'Gagal'),
+                for (final issue in report.issues.take(20))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppTheme.space2),
+                    child: Text(
+                      'Baris ${issue.rowNumber}: ${issue.message}',
+                      style: AppText.bodySm.copyWith(color: AppTheme.ink2),
+                    ),
+                  ),
+                if (report.issues.length > 20)
+                  Text(
+                    '... dan ${report.issues.length - 20} masalah lain.',
+                    style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                  ),
+              ],
+            ),
+          ),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: AppTheme.spaceLg),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Selesai'),
@@ -654,8 +804,21 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     );
   }
 
-  Widget _stat(String label, int value) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text('$label: $value'),
+  Widget _statRow(String label, int value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spaceSm),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppText.bodySm.copyWith(color: AppTheme.muted),
+              ),
+            ),
+            Text(
+              '$value',
+              style: AppText.style(size: 13, weight: 600, color: AppTheme.ink),
+            ),
+          ],
+        ),
       );
 }

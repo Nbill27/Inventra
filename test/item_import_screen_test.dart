@@ -146,15 +146,15 @@ void main() {
     expect(find.text('alat.xlsx'), findsOneWidget);
     expect(find.textContaining('4 baris data'), findsOneWidget);
     // Columns are recognised automatically, so the summary is all that shows.
-    expect(find.text('4 barang siap diimpor'), findsOneWidget);
+    expect(find.text('Siap diimpor'), findsOneWidget);
     expect(find.text('Pengaturan lanjutan'), findsOneWidget);
     expect(find.text('Berhenti di baris kosong'), findsNothing);
 
     await pressImport(tester, 4);
 
     expect(find.text('Hasil impor'), findsOneWidget);
-    expect(find.text('Ditambahkan: 4'), findsOneWidget);
-    expect(find.text('Dilewati karena kode sudah ada: 0'), findsOneWidget);
+    expect(find.text('barang ditambahkan'), findsOneWidget);
+    expect(find.text('Dilewati karena kode sudah ada'), findsOneWidget);
 
     final items = await repository.getAll();
     expect(
@@ -188,8 +188,7 @@ void main() {
     await pickFile(tester, 'Pilih file');
     await pressImport(tester, 4);
 
-    expect(find.text('Ditambahkan: 3'), findsOneWidget);
-    expect(find.text('Dilewati karena kode sudah ada: 1'), findsOneWidget);
+    expect(find.text('Dilewati karena kode sudah ada'), findsOneWidget);
     expect(find.text('- Digital Caliper'), findsOneWidget);
   });
 
@@ -205,7 +204,7 @@ void main() {
 
     await pickFile(tester, 'Pilih file');
 
-    expect(find.text('2 barang siap diimpor'), findsOneWidget);
+    expect(find.text('Siap diimpor'), findsOneWidget);
     // The stock column is present, so the "stok tiap barang" field stays hidden.
     expect(find.text('Stok tiap barang'), findsNothing);
 
@@ -231,7 +230,7 @@ void main() {
     await tester.enterText(find.byType(TextField), '4');
     await tester.pumpAndSettle();
 
-    expect(find.text('4 barang siap diimpor'), findsOneWidget);
+    expect(find.text('Siap diimpor'), findsOneWidget);
     await pressImport(tester, 4);
 
     final items = await repository.getAll();
@@ -249,8 +248,8 @@ void main() {
     await pickFile(tester, 'Pilih file');
 
     expect(find.textContaining('Belum bisa diimpor'), findsOneWidget);
-    // Nothing to import, so no import button.
-    expect(find.textContaining('barang siap diimpor'), findsNothing);
+    // Nothing to import, so no summary panel.
+    expect(find.text('Siap diimpor'), findsNothing);
     // The settings open themselves so the header row can be fixed.
     expect(find.text('Kolom terdeteksi'), findsOneWidget);
   });

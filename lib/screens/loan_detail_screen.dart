@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/dates.dart';
 import '../core/formatters.dart';
 import '../models/loan.dart';
 import '../models/loan_detail.dart';
 import '../providers/loan_provider.dart';
+import '../widgets/app_background.dart';
 import '../widgets/confirm_dialog.dart';
+import '../widgets/content_width.dart';
+import '../widgets/info_row.dart';
+import '../widgets/panel.dart';
 import '../widgets/status_chip.dart';
 import 'loan_form_screen.dart';
 
-/// FR-L7: every field of one loan, plus the actions that change its state.
+/// FR-L7: seluruh bidang satu peminjaman, plus aksi yang mengubah keadaannya.
 ///
-/// After a change this screen closes instead of redrawing, because the row it
-/// was opened with is a snapshot: the list behind is reloaded by the provider
-/// and shows the current values.
+/// Setelah perubahan, layar ini ditutup alih-alih digambar ulang, karena baris
+/// yang membukanya adalah snapshot: daftar di belakang dimuat ulang provider
+/// dan menampilkan nilai terbaru.
 class LoanDetailScreen extends StatefulWidget {
   const LoanDetailScreen({super.key, required this.detail});
 
@@ -30,29 +35,70 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
 
   Future<void> _markReturned() async {
     final loan = widget.detail.loan;
+    final item = widget.detail.item;
     final id = loan.id;
     if (id == null) {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Barang hanya bisa dikembalikan antara tanggal pinjam dan hari ini, jadi
+    // pemilih tanggal dipatok ke rentang itu alih-alih memercayai ketukan.
+    final earliest = dateOnly(loan.loanDate);
     final today = dateOnly(DateTime.now());
+    final latest = isBeforeDay(today, earliest) ? earliest : today;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: isBeforeDay(today, loan.loanDate) ? loan.loanDate : today,
-      firstDate: loan.loanDate,
-      lastDate: DateTime(2100),
+      initialDate: latest,
+      firstDate: earliest,
+      lastDate: latest,
       helpText: 'Tanggal barang dikembalikan',
     );
     if (picked == null || !mounted) {
       return;
     }
 
+    // Pengaman kalau pemilih tanggal platform mengembalikan hari di luar rentang.
+    if (isBeforeDay(picked, earliest)) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal kembali tidak boleh sebelum tanggal pinjam.'),
+        ),
+      );
+      return;
+    }
+    if (isBeforeDay(latest, picked)) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal kembali tidak boleh melebihi hari ini.'),
+        ),
+      );
+      return;
+    }
+
+    final returnDate = dateOnly(picked);
+    final confirmed = await confirmAction(
+      context,
+      title: 'Tandai dikembalikan?',
+      message:
+          'Peminjaman ${loan.borrowerName} akan ditandai selesai pada '
+          '${formatLongDate(returnDate)}. '
+          '${loan.quantity} unit ${item.name} kembali ke stok.',
+      confirmLabel: 'Ya, tandai',
+      destructive: false,
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+
     final provider = context.read<LoanProvider>();
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
     setState(() => _busy = true);
-    final error = await provider.markReturned(loanId: id, returnDate: picked);
+    final error =
+        await provider.markReturned(loanId: id, returnDate: returnDate);
 
     if (!mounted) {
       return;
@@ -127,131 +173,175 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final loan = widget.detail.loan;
     final item = widget.detail.item;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detail Peminjaman')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppTheme.gap,
-          AppTheme.gap,
-          AppTheme.gap,
-          32,
-        ),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppTheme.gap),
+      appBar: AppBar(
+        title: const Text('Detail Peminjaman'),
+        flexibleSpace: appBarScrim(),
+        actions: [
+          _RoundAction(
+            tooltip: 'Ubah peminjaman',
+            icon: Icons.edit_outlined,
+            color: AppTheme.onPrimaryContainer,
+            onTap: _busy ? null : _edit,
+          ),
+          _RoundAction(
+            tooltip: 'Hapus peminjaman',
+            icon: Icons.delete_outline,
+            color: AppTheme.error,
+            onTap: _busy ? null : _delete,
+          ),
+          const SizedBox(width: AppTheme.spaceSm),
+        ],
+      ),
+      bottomNavigationBar: loan.status == LoanStatus.borrowed
+          ? _returnBar()
+          : null,
+      body: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppTheme.spaceMd,
+            AppTheme.spaceSm,
+            AppTheme.spaceMd,
+            AppTheme.spaceLg,
+          ),
+          children: [
+            Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    loan.borrowerName,
+                    style: AppText.headlineMd.copyWith(color: AppTheme.ink),
+                  ),
+                  const SizedBox(height: AppTheme.space6),
+                  Text(
+                    item.name,
+                    style: AppText.bodyMd.copyWith(color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: AppTheme.space12),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          loan.borrowerName,
-                          style: theme.textTheme.titleLarge,
+                      StatusChip(loan: loan),
+                      const Spacer(),
+                      Text(
+                        '${loan.quantity} unit',
+                        style: AppText.style(
+                          size: 20,
+                          weight: 700,
+                          color: AppTheme.ink,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      StatusChip(loan: loan),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Divider(color: scheme.outlineVariant, height: 1),
-                  const SizedBox(height: 12),
-                  _row(
-                    Icons.straighten,
-                    'Barang',
-                    _itemLabel(item.name, item.code),
-                  ),
-                  _row(Icons.numbers, 'Jumlah', '${loan.quantity} unit'),
-                  _row(
-                    Icons.phone_outlined,
-                    'Kontak',
-                    loan.contact ?? 'Tidak diisi',
-                  ),
-                  _row(
-                    Icons.event_outlined,
-                    'Tanggal pinjam',
-                    formatLongDate(loan.loanDate),
-                  ),
-                  _row(
-                    Icons.event_available_outlined,
-                    'Rencana kembali',
-                    formatLongDate(loan.dueDate),
-                  ),
-                  if (loan.returnDate != null)
-                    _row(
-                      Icons.assignment_turned_in_outlined,
-                      'Dikembalikan',
-                      formatLongDate(loan.returnDate!),
-                    ),
-                  _row(Icons.notes_outlined, 'Catatan', loan.note ?? 'Tidak ada'),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          if (loan.status == LoanStatus.borrowed) ...[
-            FilledButton.icon(
-              onPressed: _busy ? null : _markReturned,
-              icon: const Icon(Icons.assignment_turned_in_outlined),
-              label: const Text('Tandai dikembalikan'),
+            const SizedBox(height: AppTheme.spaceMd),
+            Panel(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spaceMd,
+              ),
+              child: Column(
+                children: [
+                  InfoRow(
+                    label: 'Barang',
+                    nilai: _itemLabel(item.name, item.code),
+                  ),
+                  InfoRow(label: 'Jumlah', nilai: '${loan.quantity} unit'),
+                  InfoRow(label: 'Kontak', nilai: loan.contact),
+                  InfoRow(
+                    label: 'Tanggal pinjam',
+                    nilai: formatLongDate(loan.loanDate),
+                  ),
+                  InfoRow(
+                    label: 'Rencana kembali',
+                    nilai: formatLongDate(loan.dueDate),
+                  ),
+                  if (loan.returnDate != null)
+                    InfoRow(
+                      label: 'Dikembalikan',
+                      nilai: formatLongDate(loan.returnDate!),
+                    ),
+                  InfoRow(label: 'Catatan', nilai: loan.note, garisBawah: false),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
           ],
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _edit,
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Ubah'),
+        ),
+      ),
+    );
+  }
+
+  /// Aksi utama layar: selalu terlihat dan dalam jangkauan jempol.
+  Widget _returnBar() {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppTheme.cardSolid,
+        border: Border(top: BorderSide(color: AppTheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTheme.spaceMd),
+          child: FilledButton.icon(
+            onPressed: _busy ? null : _markReturned,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.deep,
+            ),
+            icon: const Icon(Icons.assignment_turned_in_outlined, size: 20),
+            label: const Text('Tandai dikembalikan'),
           ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: _busy ? null : _delete,
-            style: TextButton.styleFrom(foregroundColor: scheme.error),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Hapus'),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   static String _itemLabel(String name, String? code) =>
       code == null ? name : '$name ($code)';
+}
 
-  /// One labelled fact: a leading icon keeps the column scannable, and the
-  /// label sits above the value so long values never squeeze the label away.
-  Widget _row(IconData icon, String label, String value) {
-    final theme = Theme.of(context);
+/// Tombol ikon bulat untuk bar judul layar detail.
+class _RoundAction extends StatelessWidget {
+  const _RoundAction({
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(value, style: theme.textTheme.bodyLarge),
-              ],
+      padding: const EdgeInsets.only(left: AppTheme.space6),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: AppTheme.chip,
+          shape: const CircleBorder(
+            side: BorderSide(color: AppTheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: AppTheme.touch,
+              height: AppTheme.touch,
+              child: Icon(
+                icon,
+                size: 20,
+                color: onTap == null ? AppTheme.outline : color,
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

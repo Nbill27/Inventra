@@ -72,6 +72,20 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Poppins di-bundle ke aplikasi supaya tetap 100% offline (tidak unduh saat
+  # runtime). Font statis per weight, jadi bobot diatur lewat `fontWeight`.
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

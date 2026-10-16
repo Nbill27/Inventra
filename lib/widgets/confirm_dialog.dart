@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Confirmation before anything is destroyed (PRD §8). Returns true only when
-/// the confirm button was pressed, so a dismissed sheet means "do nothing".
+import '../core/app_theme.dart';
+
+/// Konfirmasi sebelum sesuatu yang merusak atau mengubah stok dijalankan.
+/// Mengembalikan true hanya saat tombol konfirmasi ditekan, jadi dialog yang
+/// ditutup berarti "jangan lakukan apa-apa".
 Future<bool> confirmAction(
   BuildContext context, {
   required String title,
@@ -9,7 +12,6 @@ Future<bool> confirmAction(
   required String confirmLabel,
   bool destructive = true,
 }) async {
-  final theme = Theme.of(context);
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
@@ -24,8 +26,8 @@ Future<bool> confirmAction(
           onPressed: () => Navigator.of(dialogContext).pop(true),
           style: destructive
               ? FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
-                  foregroundColor: theme.colorScheme.onError,
+                  backgroundColor: AppTheme.error,
+                  foregroundColor: AppTheme.onError,
                 )
               : null,
           child: Text(confirmLabel),

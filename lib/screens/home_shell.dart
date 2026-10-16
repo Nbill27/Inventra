@@ -6,8 +6,8 @@ import '../providers/loan_provider.dart';
 import 'item_list_screen.dart';
 import 'loan_list_screen.dart';
 
-/// Two destinations only (PRD §8). Both stay alive in an [IndexedStack], so
-/// search text and scroll position survive a tab switch.
+/// Dua tujuan saja (PRD §8). Keduanya tetap hidup di dalam [IndexedStack],
+/// sehingga teks pencarian dan posisi gulir bertahan saat berpindah tab.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, this.initialTab = 0});
 
@@ -20,8 +20,8 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   late int _index = widget.initialTab;
 
-  /// Reloads the tab being opened. Without this, a loan listed here still shows
-  /// an item name that was edited on the other tab.
+  /// Memuat ulang tab yang dibuka. Tanpa ini, peminjaman di tab sebelah masih
+  /// menampilkan nama barang yang sudah diubah.
   Future<void> _onSelect(int index) async {
     if (index == _index) {
       return;
