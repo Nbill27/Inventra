@@ -7,6 +7,7 @@ import '../db/database_helper.dart';
 import '../models/item.dart';
 import '../models/loan.dart';
 import '../models/loan_detail.dart';
+import '../models/loan_stats.dart';
 
 class LoanRepository {
   LoanRepository({DatabaseHelper? helper})
@@ -20,7 +21,11 @@ class LoanRepository {
   /// FR-L5: newest first. Items are fetched in one extra query instead of per row.
   ///
   /// [statuses] narrows the list; an empty set (or null) means every status.
-  Future<List<LoanDetail>> getAllDetailed({Set<LoanStatus>? statuses}) async {
+  /// [limit] is used by the beranda, which only needs the latest few rows.
+  Future<List<LoanDetail>> getAllDetailed({
+    Set<LoanStatus>? statuses,
+    int? limit,
+  }) async {
     final db = await _helper.database;
     final wanted = statuses == null || statuses.isEmpty ? null : statuses.toList();
     final rows = await db.query(
@@ -30,6 +35,7 @@ class LoanRepository {
           : 'status IN (${List.filled(wanted.length, '?').join(', ')})',
       whereArgs: wanted?.map((status) => status.dbValue).toList(),
       orderBy: 'loan_date DESC, id DESC',
+      limit: limit,
     );
     final loans = rows.map(Loan.fromMap).toList();
     if (loans.isEmpty) {
@@ -53,6 +59,38 @@ class LoanRepository {
     final loan = await _loadLoan(db, id);
     final item = await _loadItem(db, loan.itemId);
     return LoanDetail(loan: loan, item: item);
+  }
+
+  /// Ringkasan untuk beranda, dihitung database dalam satu query agregat.
+  ///
+  /// Tanggal disimpan sebagai teks `YYYY-MM-DD`, jadi perbandingan teks sudah
+  /// sama dengan perbandingan tanggal.
+  Future<LoanStats> stats({required DateTime today}) async {
+    final db = await _helper.database;
+    final borrowed = LoanStatus.borrowed.dbValue;
+    final rows = await db.rawQuery('''
+      SELECT
+        COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS active,
+        COALESCE(SUM(CASE WHEN status = ? THEN quantity ELSE 0 END), 0)
+          AS active_units,
+        COALESCE(SUM(CASE WHEN status = ? AND due_date < ? THEN 1 ELSE 0 END), 0)
+          AS late,
+        COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS returned
+      FROM $_table
+    ''', [
+      borrowed,
+      borrowed,
+      borrowed,
+      formatDate(today),
+      LoanStatus.returned.dbValue,
+    ]);
+    final row = rows.first;
+    return LoanStats(
+      active: (row['active'] as int?) ?? 0,
+      activeUnits: (row['active_units'] as int?) ?? 0,
+      late: (row['late'] as int?) ?? 0,
+      returned: (row['returned'] as int?) ?? 0,
+    );
   }
 
   /// FR-L2..FR-L4: quantity must fit available stock, and one transaction

@@ -13,6 +13,7 @@ import '../providers/loan_provider.dart';
 import '../widgets/app_background.dart';
 import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/item_picker_sheet.dart';
 import '../widgets/panel.dart';
 import '../widgets/section_header.dart';
 
@@ -44,6 +45,10 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   late DateTime _loanDate;
   late DateTime _dueDate;
   bool _saving = false;
+
+  /// Barang tidak dipilih otomatis. Dengan daftar yang bisa berisi puluhan ribu
+  /// baris, menebak satu baris pertama justru berisiko salah catat.
+  bool _itemError = false;
 
   /// FR-L8: peminjaman yang sudah selesai menyimpan barang dan jumlahnya, jadi
   /// form membekukan keduanya alih-alih membiarkan admin mengetik nilai yang
@@ -90,7 +95,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
               items.isEmpty) {
             return const SizedBox.shrink();
           }
-          return _saveBar(items);
+          return _saveBar();
         },
       ),
       body: FutureBuilder<List<Item>>(
@@ -121,8 +126,6 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   }
 
   Widget _form(List<Item> items) {
-    final selectedId = _itemId ?? items.first.id;
-
     return Form(
       key: _formKey,
       autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -152,36 +155,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                     label: 'Barang & peminjam',
                   ),
                   const SizedBox(height: AppTheme.spaceMd),
-                  InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Barang',
-                      prefixIcon: Icon(Icons.inventory_2_outlined),
-                      helperText:
-                          'Angka dalam kurung adalah stok yang bisa dipinjam.',
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: items.any((item) => item.id == selectedId)
-                            ? selectedId
-                            : null,
-                        isExpanded: true,
-                        isDense: true,
-                        onChanged: _isLocked
-                            ? null
-                            : (value) => setState(() => _itemId = value),
-                        items: [
-                          for (final item in items)
-                            DropdownMenuItem<int>(
-                              value: item.id,
-                              child: Text(
-                                '${item.name} (${_availableFor(item)} tersedia)',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _itemField(items),
                   const SizedBox(height: AppTheme.space12),
                   TextFormField(
                     controller: _borrower,
@@ -281,7 +255,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   }
 
   /// Tombol simpan di bar bawah, tetap dalam jangkauan jempol.
-  Widget _saveBar(List<Item> items) {
+  Widget _saveBar() {
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppTheme.cardSolid,
@@ -291,7 +265,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spaceMd),
           child: FilledButton.icon(
-            onPressed: _saving ? null : () => _submit(items),
+            onPressed: _saving ? null : _submit,
             icon: _saving
                 ? const SizedBox(
                     width: 18,
@@ -307,6 +281,60 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
         ),
       ),
     );
+  }
+
+  /// Bidang barang berupa tombol yang membuka pemilih, bukan dropdown.
+  ///
+  /// Dropdown membangun seluruh isi daftar sekaligus, jadi daftar yang panjang
+  /// membuat layar berat dan pengguna tetap harus menggulir untuk menemukan
+  /// satu nama. Di pemilih, barang disaring dulu lewat pencarian.
+  Widget _itemField(List<Item> items) {
+    final selected = _selectedItem(items);
+    final label = selected == null
+        ? 'Belum dipilih'
+        : '${selected.name} · ${_availableFor(selected)} tersedia';
+
+    return InkWell(
+      onTap: _isLocked ? null : () => _pickItem(items),
+      borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Barang *',
+          prefixIcon: const Icon(Icons.inventory_2_outlined),
+          suffixIcon: Icon(
+            _isLocked ? Icons.lock_outline : Icons.unfold_more,
+          ),
+          helperText: 'Cari lalu pilih barang yang dipinjam.',
+          errorText: _itemError ? 'Barang wajib dipilih.' : null,
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppText.style(
+            size: 14,
+            weight: 500,
+            color: selected == null ? AppTheme.muted : AppTheme.ink,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickItem(List<Item> items) async {
+    final picked = await showItemPicker(
+      context,
+      items: items,
+      selectedId: _itemId,
+      availableFor: _availableFor,
+    );
+    if (picked == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _itemId = picked;
+      _itemError = false;
+    });
   }
 
   Widget _notice(String message) {
@@ -353,7 +381,10 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
       );
 
   Item? _selectedItem(List<Item> items) {
-    final id = _itemId ?? items.first.id;
+    final id = _itemId;
+    if (id == null) {
+      return null;
+    }
     for (final item in items) {
       if (item.id == id) {
         return item;
@@ -400,9 +431,11 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     if (_isLocked) {
       return null;
     }
+    // Barang belum dipilih: kesalahannya ditampilkan di bidang barang, bukan
+    // di sini, supaya pesannya tidak muncul dua kali.
     final item = _selectedItem(items);
     if (item == null) {
-      return 'Pilih barang dulu.';
+      return null;
     }
     final available = _availableFor(item);
     if (parsed > available) {
@@ -446,12 +479,13 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     setState(() => _dueDate = dateOnly(picked));
   }
 
-  Future<void> _submit(List<Item> items) async {
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    final itemId = _itemId ?? items.first.id;
+    final itemId = _itemId;
     if (itemId == null) {
+      setState(() => _itemError = true);
       return;
     }
 

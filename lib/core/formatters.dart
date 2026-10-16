@@ -14,3 +14,19 @@ String formatDisplayDate(DateTime date) => _dayMonthYear.format(date);
 
 /// Detail header: `Jumat, 16 Oktober 2026`.
 String formatLongDate(DateTime date) => _fullDate.format(date);
+
+/// Angka dengan pemisah ribuan gaya Indonesia: `100000` menjadi `100.000`.
+///
+/// Ditulis manual alih-alih lewat `NumberFormat` supaya tidak bergantung pada
+/// data locale yang dimuat saat runtime.
+String formatCount(int value) {
+  final digits = value.abs().toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) {
+      buffer.write('.');
+    }
+    buffer.write(digits[i]);
+  }
+  return '${value < 0 ? '-' : ''}$buffer';
+}

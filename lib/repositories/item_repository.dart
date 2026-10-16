@@ -5,6 +5,7 @@ import '../core/validation.dart';
 import '../db/database_helper.dart';
 import '../models/item.dart';
 import '../models/item_import.dart';
+import '../models/item_stats.dart';
 import '../models/loan.dart';
 
 class ItemRepository {
@@ -36,6 +37,26 @@ class ItemRepository {
       throw const NotFoundException('Barang tidak ditemukan.');
     }
     return Item.fromMap(rows.first);
+  }
+
+  /// Ringkasan untuk beranda, dihitung database dalam satu query agregat.
+  Future<ItemStats> stats() async {
+    final db = await _helper.database;
+    final rows = await db.rawQuery('''
+      SELECT COUNT(*) AS total_items,
+             COALESCE(SUM(stock_total), 0) AS total_units,
+             COALESCE(SUM(stock_available), 0) AS available_units,
+             COALESCE(SUM(CASE WHEN stock_available = 0 THEN 1 ELSE 0 END), 0)
+               AS out_of_stock
+      FROM $_table
+    ''');
+    final row = rows.first;
+    return ItemStats(
+      totalItems: (row['total_items'] as int?) ?? 0,
+      totalUnits: (row['total_units'] as int?) ?? 0,
+      availableUnits: (row['available_units'] as int?) ?? 0,
+      outOfStock: (row['out_of_stock'] as int?) ?? 0,
+    );
   }
 
   /// A new item starts fully available, so `stock_available` mirrors `stock_total`.

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/dates.dart';
-import '../core/formatters.dart';
 import '../models/loan.dart';
 import '../models/loan_detail.dart';
 import '../providers/loan_provider.dart';
@@ -14,7 +13,7 @@ import '../widgets/app_chrome.dart';
 import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
-import '../widgets/status_chip.dart';
+import '../widgets/loan_card.dart';
 import 'loan_detail_screen.dart';
 import 'loan_form_screen.dart';
 
@@ -181,7 +180,7 @@ class LoanListScreen extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(height: AppTheme.space10),
         itemBuilder: (context, index) {
           final detail = loans[index];
-          return _LoanCard(
+          return LoanCard(
             key: ValueKey(detail.loan.id),
             detail: detail,
             onTap: () => Navigator.of(context).push(
@@ -284,89 +283,6 @@ class LoanListScreen extends StatelessWidget {
   void _openForm(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const LoanFormScreen()),
-    );
-  }
-}
-
-/// Satu peminjaman sebagai kartu: siapa meminjam apa, sampai kapan, dan status.
-class _LoanCard extends StatelessWidget {
-  const _LoanCard({super.key, required this.detail, required this.onTap});
-
-  final LoanDetail detail;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final loan = detail.loan;
-
-    return Card(
-      color: AppTheme.cardSolid,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        side: const BorderSide(color: AppTheme.outlineVariant),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      loan.borrowerName,
-                      style: AppText.style(
-                        size: 14,
-                        weight: 600,
-                        color: AppTheme.ink,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.spaceSm),
-                  StatusChip(loan: loan),
-                ],
-              ),
-              const SizedBox(height: AppTheme.spaceSm),
-              _line(
-                Icons.straighten,
-                '${detail.item.name} · ${loan.quantity} unit',
-              ),
-              const SizedBox(height: AppTheme.spaceXs),
-              _line(
-                Icons.event_outlined,
-                '${formatDisplayDate(loan.loanDate)} → '
-                    '${formatDisplayDate(loan.dueDate)}',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _line(IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: AppTheme.muted),
-        const SizedBox(width: AppTheme.spaceSm),
-        Expanded(
-          child: Text(
-            text,
-            style: AppText.style(
-              size: 12.5,
-              weight: 500,
-              color: AppTheme.muted,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -93,8 +93,9 @@ T1 sampai T13 lulus di lapisan repository dan database, 32 tes. Yang belum: peng
 
 ## 8. UI
 
-- [x] Tema Material 3 mode terang dan gelap mengikuti pengaturan HP
-- [x] `HomeShell` dengan navigasi bawah dua tab: Barang dan Peminjaman (NavigationBar)
+- [x] Tema terang Material 3 dengan token terpusat (mengikuti arah visual proyek barcode)
+- [x] `HomeShell` dengan navigasi bawah tiga tab: Beranda, Barang, Peminjaman (NavigationBar)
+- [x] Layar beranda: ringkasan angka, peminjaman terbaru, dan pintasan aksi
 - [x] Layar daftar barang: pencarian, daftar, indikator stok, tombol tambah, empty state
 - [x] Layar form barang: mode tambah dan ubah, validasi, tombol hapus
 - [x] Layar impor barang: pilih file, kolom dikenali otomatis, pratinjau, ringkasan
@@ -110,7 +111,7 @@ T1 sampai T13 lulus di lapisan repository dan database, 32 tes. Yang belum: peng
 
 - [~] `TODO(export)`: ekspor riwayat peminjaman ke Excel/CSV sudah ada (mengikuti filter yang tampil). Ekspor/cadangan daftar barang belum
 - [ ] `TODO(multi-item)`: satu peminjaman untuk banyak barang sekaligus
-- [ ] `TODO(statistics)`: dashboard ringkasan dan laporan
+- [~] `TODO(statistics)`: dashboard ringkasan sudah ada di layar Beranda (angka barang, unit dipinjam, terlambat, stok habis). Laporan per periode dan ekspor laporan belum
 - [ ] `TODO(overdue-notif)`: notifikasi pengingat keterlambatan
 - [ ] `TODO(qr)`: scan QR atau barcode barang
 - [ ] `TODO(photo)`: foto barang
