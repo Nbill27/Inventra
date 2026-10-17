@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_text.dart';
 
-/// Tema aplikasi Peminjaman Barang.
+/// Tema aplikasi Inventra.
 ///
 /// Palet mengikuti arah visual `barcode_warehouse`: biru `#0878F9` (brand) di
 /// atas **latar terang solid** — tanpa gradien global dan tanpa kaca wajib,
@@ -19,27 +19,35 @@ class AppTheme {
 
   // ---------------------------------------------------------------------------
   // Warna inti
+  //
+  // Palet brand hanya empat warna: navy pekat `#000D60`, biru aksi `#001A97`,
+  // lavender lembut `#DFE0FF`, dan putih `#FFFFFF`. Seluruh token lain adalah
+  // turunan netral dari keempatnya, jadi mengganti satu nilai di sini ikut
+  // mengubah semua layar.
   // ---------------------------------------------------------------------------
 
-  /// Biru utama (aksi, tautan, nav).
-  static const Color blue = Color(0xFF0878F9);
+  /// Biru aksi (tombol, tautan, penanda terpilih, bilah kemajuan).
+  static const Color blue = Color(0xFF001A97);
 
-  /// Biru pekat untuk hero, bar bawah, dan FAB.
-  static const Color deep = Color(0xFF063E91);
+  /// Navy pekat untuk hero, bar bawah, FAB, dan teks utama.
+  static const Color deep = Color(0xFF000D60);
+
+  /// Lavender lembut untuk chip, kotak ikon, dan wadah aksen.
+  static const Color lavender = Color(0xFFDFE0FF);
 
   static const Color primary = blue;
   static const Color onPrimary = Color(0xFFFFFFFF);
-  static const Color primaryContainer = Color(0xFFDCEBFF);
-  static const Color onPrimaryContainer = Color(0xFF0B3A75);
+  static const Color primaryContainer = lavender;
+  static const Color onPrimaryContainer = blue;
 
   static const Color secondary = deep;
   static const Color onSecondary = Color(0xFFFFFFFF);
-  static const Color secondaryContainer = Color(0xFFE2EAF6);
-  static const Color onSecondaryContainer = Color(0xFF10285E);
-  static const Color secondaryFixed = Color(0xFFD6E2F2);
+  static const Color secondaryContainer = lavender;
+  static const Color onSecondaryContainer = deep;
+  static const Color secondaryFixed = lavender;
 
-  static const Color tertiaryContainer = Color(0xFFE3F2FA);
-  static const Color onTertiaryContainer = Color(0xFF0B3A75);
+  static const Color tertiaryContainer = lavender;
+  static const Color onTertiaryContainer = blue;
 
   static const Color error = Color(0xFFDC2626);
   static const Color onError = Color(0xFFFFFFFF);
@@ -50,68 +58,62 @@ class AppTheme {
   // Permukaan
   // ---------------------------------------------------------------------------
 
-  static const Color surface = Color(0xFFF6F8FB);
-  static const Color onSurface = Color(0xFF14213D);
-  static const Color surfaceDim = Color(0xFFE6EBF2);
+  static const Color surface = Color(0xFFF6F7FE);
+  static const Color onSurface = deep;
+  static const Color surfaceDim = Color(0xFFE6E7F6);
   static const Color surfaceBright = Color(0xFFFFFFFF);
   static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color surfaceContainerLow = Color(0xFFF0F3F8);
-  static const Color surfaceContainer = Color(0xFFE9EEF5);
-  static const Color surfaceContainerHigh = Color(0xFFDEE5EF);
-  static const Color surfaceContainerHighest = Color(0xFFCBD6E4);
+  static const Color surfaceContainerLow = Color(0xFFF1F2FC);
+  static const Color surfaceContainer = Color(0xFFEBECF9);
+  static const Color surfaceContainerHigh = Color(0xFFE3E4F7);
+  static const Color surfaceContainerHighest = Color(0xFFCDCFEF);
 
   /// Teks sekunder di atas permukaan terang (kontras >= 4.5:1).
-  static const Color onSurfaceVariant = Color(0xFF4A5A75);
+  static const Color onSurfaceVariant = Color(0xFF3F4470);
 
-  static const Color outline = Color(0xFFB9C6D8);
-  static const Color outlineVariant = Color(0xFFDDE4EE);
+  /// Batas komponen yang harus terlihat — input, tombol outline, chip, checkbox.
+  /// Kontras 3.6:1 di atas [surfaceContainerLow], lolos WCAG 1.4.11 (non-teks
+  /// minimal 3:1).
+  static const Color outline = Color(0xFF7E84AD);
+
+  /// Pembatas dekoratif: garis pemisah, tepi kartu, panel. Sengaja tipis supaya
+  /// tidak bersaing dengan isi, jadi tidak dituntut 3:1.
+  static const Color outlineVariant = Color(0xFFE1E2F6);
 
   static const Color inverseSurface = deep;
-  static const Color onInverseSurface = Color(0xFFE3ECF8);
-  static const Color inversePrimary = Color(0xFF9CCBFF);
+  static const Color onInverseSurface = lavender;
+  static const Color inversePrimary = lavender;
 
   // ---------------------------------------------------------------------------
   // Kartu & lapisan
   // ---------------------------------------------------------------------------
 
   /// Kartu solid putih di atas permukaan terang.
-  static const Color cardSolid = Color(0xFFFFFFFF);
+  static const Color cardSolid = surfaceContainerLowest;
 
-  /// Bayangan halus netral untuk kartu yang mengambang.
-  static const Color cardShadow = Color(0x1414230F);
+  /// Bayangan halus bernuansa navy untuk kartu yang mengambang.
+  static const Color cardShadow = Color(0x14000D60);
 
   /// Strip tipis aksen di kiri judul bagian.
   static const Color strip = blue;
 
-  /// Latar kartu biasa (kompatibel nama lama) — putih.
-  static const Color card = Color(0xFFFFFFFF);
-
-  /// Aksen (kompatibel) — biru utama.
-  static const Color accent = blue;
-
   /// Teks utama / judul aplikasi.
-  static const Color ink = Color(0xFF14213D);
+  static const Color ink = deep;
 
-  /// Teks sekunder.
-  static const Color ink2 = Color(0xFF4A5A75);
+  /// Teks sekunder (alias [onSurfaceVariant]).
+  static const Color ink2 = onSurfaceVariant;
 
   /// Teks tersier / metadata.
-  static const Color muted = Color(0xFF5C6B85);
+  static const Color muted = Color(0xFF565C80);
 
   /// Chip ikon / pill latar terang.
-  static const Color chip = Color(0xFFE2EAF6);
+  static const Color chip = lavender;
 
   /// Tautan / teks aksi di atas latar terang (>=4.5:1).
-  static const Color link = Color(0xFF0A4FA8);
+  static const Color link = blue;
 
-  static const Color bad = Color(0xFFDC2626);
-  static const Color badText = Color(0xFF9F1D1D);
-
-  /// Lapisan gelap transparan saat memuat.
-  static const Color scrim = Color(0x5914213D);
-
-  /// Isi kotak ikon beraksen pada kartu (biru muda).
-  static const Color iconBoxFill = Color(0xFFDCEBFF);
+  /// Isi kotak ikon beraksen pada kartu (lavender).
+  static const Color iconBoxFill = lavender;
 
   // ---------------------------------------------------------------------------
   // Warna status peminjaman
@@ -124,7 +126,6 @@ class AppTheme {
   static const Color ok = Color(0xFF0E7C5A);
   static const Color okSoft = Color(0xFFE2F4EC);
   static const Color warn = Color(0xFF8A5606);
-  static const Color warnSoft = Color(0xFFFBF0DC);
   static const Color danger = Color(0xFFBE2B2B);
   static const Color dangerSoft = Color(0xFFFBE7E7);
 
@@ -164,12 +165,6 @@ class AppTheme {
 
   /// Ruang bawah untuk bar aksi yang mengambang atau FAB.
   static const double spaceBottomBar = 88;
-
-  /// Padding layar standar.
-  static const EdgeInsets margin = EdgeInsets.symmetric(horizontal: spaceMd);
-
-  /// Jarak antar bagian di dalam satu layar.
-  static const double gap = spaceMd;
 
   // ---------------------------------------------------------------------------
   // ColorScheme
@@ -300,11 +295,11 @@ class AppTheme {
         suffixIconColor: onSurfaceVariant,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusXl),
-          borderSide: const BorderSide(color: outlineVariant),
+          borderSide: const BorderSide(color: outline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusXl),
-          borderSide: const BorderSide(color: outlineVariant),
+          borderSide: const BorderSide(color: outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusXl),
@@ -342,7 +337,7 @@ class AppTheme {
           minimumSize: const Size(0, 52),
           padding: const EdgeInsets.symmetric(horizontal: spaceLg),
           textStyle: AppText.labelLg,
-          side: const BorderSide(color: outlineVariant),
+          side: const BorderSide(color: outline),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusXl),
           ),
@@ -366,7 +361,7 @@ class AppTheme {
         backgroundColor: surfaceContainerLow,
         selectedColor: cardSolid,
         disabledColor: surfaceContainerLow,
-        side: const BorderSide(color: outlineVariant),
+        side: const BorderSide(color: outline),
         shape: const StadiumBorder(),
         showCheckmark: false,
         labelStyle: AppText.labelMd.copyWith(color: onSurfaceVariant),
@@ -421,7 +416,7 @@ class AppTheme {
         backgroundColor: const Color(0xF2FFFFFF),
         surfaceTintColor: Colors.transparent,
         elevation: 2,
-        shadowColor: const Color(0x3310285E),
+        shadowColor: const Color(0x33000D60),
         titleTextStyle: AppText.headlineSm.copyWith(color: onSurface),
         contentTextStyle: AppText.bodyMd.copyWith(color: onSurfaceVariant),
         shape: RoundedRectangleBorder(
@@ -444,7 +439,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusSm),
         ),
-        side: const BorderSide(color: outlineVariant, width: 1.5),
+        side: const BorderSide(color: outline, width: 1.5),
         fillColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return primary;
           return Colors.transparent;
@@ -487,7 +482,7 @@ class AppTheme {
 
       textSelectionTheme: const TextSelectionThemeData(
         cursorColor: blue,
-        selectionColor: Color(0x330878F9),
+        selectionColor: Color(0x33001A97),
         selectionHandleColor: blue,
       ),
 

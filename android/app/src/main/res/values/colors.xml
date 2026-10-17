@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Latar ikon adaptif Inventra, disampel dari logo. -->
+    <color name="ic_launcher_background">#03265C</color>
+</resources>

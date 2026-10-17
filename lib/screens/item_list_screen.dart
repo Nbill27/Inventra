@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../models/item.dart';
+import '../models/item_filter.dart';
 import '../providers/item_provider.dart';
 import '../widgets/app_background.dart';
 import '../widgets/app_chrome.dart';
@@ -53,6 +54,31 @@ class _ItemListScreenState extends State<ItemListScreen> {
     _debounce?.cancel();
     _search.clear();
     context.read<ItemProvider>().search('');
+  }
+
+  /// Filter pilih-satu: "Semua" mengosongkan pilihan, chip kategori selalu
+  /// menggantikan pilihan sebelumnya.
+  List<Widget> _filters(BuildContext context, ItemProvider provider) {
+    final selected = provider.filter;
+    return [
+      Padding(
+        padding: const EdgeInsets.only(right: AppTheme.spaceSm),
+        child: FilterPill(
+          label: 'Semua',
+          active: selected == null,
+          onTap: () => context.read<ItemProvider>().filterBy(null),
+        ),
+      ),
+      for (final filter in ItemFilter.values)
+        Padding(
+          padding: const EdgeInsets.only(right: AppTheme.spaceSm),
+          child: FilterPill(
+            label: filter.label,
+            active: selected == filter,
+            onTap: () => context.read<ItemProvider>().filterBy(filter),
+          ),
+        ),
+    ];
   }
 
   @override
@@ -117,6 +143,21 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 onClear: _clearSearch,
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppTheme.spaceMd,
+                0,
+                AppTheme.spaceMd,
+                AppTheme.spaceSm,
+              ),
+              child: SizedBox(
+                height: 38,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _filters(context, provider),
+                ),
+              ),
+            ),
             Expanded(child: _body(provider)),
           ],
         ),
@@ -145,11 +186,27 @@ class _ItemListScreenState extends State<ItemListScreen> {
         return EmptyState(
           icon: Icons.search_off,
           title: 'Barang tidak ditemukan',
-          message: 'Tidak ada barang yang cocok dengan "${provider.query}".',
+          message: provider.filter == null
+              ? 'Tidak ada barang yang cocok dengan "${provider.query}".'
+              : 'Tidak ada barang yang cocok dengan "${provider.query}" '
+                  'di kategori terpilih.',
           actions: [
             OutlinedButton(
               onPressed: _clearSearch,
               child: const Text('Bersihkan pencarian'),
+            ),
+          ],
+        );
+      }
+      if (provider.filter != null) {
+        return EmptyState(
+          icon: Icons.filter_alt_off_outlined,
+          title: 'Tidak ada barang di kategori ini',
+          message: 'Pilih "Semua" untuk melihat seluruh barang.',
+          actions: [
+            OutlinedButton(
+              onPressed: () => context.read<ItemProvider>().filterBy(null),
+              child: const Text('Lihat semua'),
             ),
           ],
         );

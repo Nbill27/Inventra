@@ -8,6 +8,8 @@ class LoanStats {
     this.activeUnits = 0,
     this.late = 0,
     this.returned = 0,
+    this.onTime = 0,
+    this.averageLoanDays = 0,
   });
 
   /// Peminjaman yang belum dikembalikan.
@@ -22,5 +24,14 @@ class LoanStats {
   /// Peminjaman yang sudah selesai.
   final int returned;
 
+  /// Peminjaman selesai yang dikembalikan tidak melewati tanggal rencana.
+  final int onTime;
+
+  /// Rerata lama pinjam (hari) dari peminjaman yang sudah selesai.
+  final double averageLoanDays;
+
   int get total => active + returned;
+
+  /// Bagian peminjaman selesai yang tepat waktu, 0..1.
+  double get onTimeRate => returned == 0 ? 0 : onTime / returned;
 }

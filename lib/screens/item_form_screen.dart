@@ -117,7 +117,7 @@ class _ItemFormScreenState extends State<ItemFormScreen> {
                 child: Material(
                   color: AppTheme.chip,
                   shape: const CircleBorder(
-                    side: BorderSide(color: AppTheme.outlineVariant),
+                    side: BorderSide(color: AppTheme.outline),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(

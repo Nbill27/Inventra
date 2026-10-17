@@ -4,35 +4,43 @@ import 'package:provider/provider.dart';
 import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/formatters.dart';
-import '../models/item_stats.dart';
 import '../models/loan_detail.dart';
+import '../models/loan_filter.dart';
 import '../models/loan_stats.dart';
-import '../providers/home_provider.dart';
+import '../providers/loan_provider.dart';
+import '../widgets/app_chrome.dart';
 import '../widgets/content_width.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/error_state.dart';
 import '../widgets/loan_card.dart';
 import '../widgets/panel.dart';
 import '../widgets/section_header.dart';
-import 'item_form_screen.dart';
-import 'item_import_screen.dart';
 import 'loan_detail_screen.dart';
 import 'loan_form_screen.dart';
 
-/// Beranda: satu layar untuk tahu keadaan gudang alat tanpa membuka daftar.
+/// Beranda: ringkasan peminjaman plus daftar yang bisa dicari dan disaring.
 ///
-/// Isinya ringkasan angka, peminjaman terbaru, dan pintasan ke aksi yang paling
-/// sering dipakai. Semua angka datang dari query agregat di repository, jadi
-/// layar ini tidak ikut melambat saat daftar barangnya panjang.
+/// Tab ini berlabel "Beranda" di bar bawah; riwayat lengkap dengan ekspor ada
+/// di tab "Riwayat".
+///
+/// Isinya tiga angka pokok, kolom pencarian, chip filter pilih-satu, dan daftar
+/// peminjaman. Semua angka datang dari query agregat di repository, jadi layar
+/// ini tidak ikut melambat saat daftar peminjamannya panjang.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, this.onBukaTab});
-
-  /// Pindah tab di [HomeShell]: 0 Beranda, 1 Barang, 2 Peminjaman.
-  final ValueChanged<int>? onBukaTab;
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _search = TextEditingController();
+
+  /// Filter dan pencarian disimpan di layar ini, bukan di provider, supaya
+  /// tidak ikut mengubah daftar di tab Riwayat.
+  LoanFilter? _filter;
+  String _query = '';
+
   @override
   void initState() {
     super.initState();
@@ -40,564 +48,374 @@ class _HomeScreenState extends State<HomeScreen> {
     // tab yang memicu muat ulang tidak terjadi saat aplikasi baru dibuka.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<HomeProvider>().load();
+        context.read<LoanProvider>().load();
       }
     });
   }
 
-  /// Membuka layar lain, lalu menyegarkan ringkasan karena isinya bisa berubah.
-  Future<void> _bukaHalaman(Widget halaman) async {
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _query = value);
+  }
+
+  void _clearSearch() {
+    _search.clear();
+    setState(() => _query = '');
+  }
+
+  /// Membuka layar lain, lalu menyegarkan daftar karena isinya bisa berubah.
+  Future<void> _openScreen(Widget screen) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => halaman),
+      MaterialPageRoute(builder: (_) => screen),
     );
     if (mounted) {
-      await context.read<HomeProvider>().load();
+      await context.read<LoanProvider>().load();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<HomeProvider>();
+    final provider = context.watch<LoanProvider>();
+    final loans = _visible(provider.loans);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openScreen(const LoanFormScreen()),
+        icon: const Icon(Icons.add),
+        label: const Text('Catat pinjam'),
+      ),
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
-          onRefresh: () => context.read<HomeProvider>().load(),
-          child: ContentWidth(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppTheme.spaceMd,
-                AppTheme.spaceSm,
-                AppTheme.spaceMd,
-                AppTheme.spaceBottomBar,
+        child: ContentWidth(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.spaceMd,
+                  AppTheme.spaceSm,
+                  AppTheme.spaceMd,
+                  AppTheme.spaceMd,
+                ),
+                child: _MetricsRow(
+                  loans: provider.stats,
+                  isLoading: provider.isLoading,
+                ),
               ),
-              children: [
-                const _Hero(),
-                const SizedBox(height: AppTheme.spaceMd),
-                _StatsGrid(
-                  items: provider.itemStats,
-                  loans: provider.loanStats,
-                  memuat: provider.isLoading,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.spaceMd,
+                  0,
+                  AppTheme.spaceMd,
+                  AppTheme.spaceSm,
                 ),
-                const SizedBox(height: AppTheme.spaceLg),
-                SectionHeader(
-                  title: 'Peminjaman terbaru',
-                  trailingLabel: 'Lihat semua',
-                  onTrailingTap: () => widget.onBukaTab?.call(2),
+                child: SearchField(
+                  controller: _search,
+                  hintText: 'Cari nama peminjam atau barang',
+                  onChanged: _onSearchChanged,
+                  onClear: _clearSearch,
                 ),
-                const SizedBox(height: AppTheme.spaceSm),
-                _RecentList(
-                  daftar: provider.recent,
-                  memuat: provider.isLoading,
-                  onTapItem: (detail) =>
-                      _bukaHalaman(LoanDetailScreen(detail: detail)),
-                  onLihatSemua: () => widget.onBukaTab?.call(2),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.spaceMd,
+                  0,
+                  AppTheme.spaceMd,
+                  AppTheme.spaceSm,
                 ),
-                const SizedBox(height: AppTheme.spaceLg),
-                const SectionHeader(title: 'Aksi cepat'),
-                const SizedBox(height: AppTheme.spaceSm),
-                _QuickActions(
-                  onCatatPinjam: () =>
-                      _bukaHalaman(const LoanFormScreen()),
-                  onTambahBarang: () =>
-                      _bukaHalaman(const ItemFormScreen()),
-                  onImpor: () => _bukaHalaman(const ItemImportScreen()),
-                  onLihatBarang: () => widget.onBukaTab?.call(1),
+                child: SizedBox(
+                  height: 38,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: _filters(),
+                  ),
                 ),
-              ],
-            ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppTheme.spaceMd,
+                  0,
+                  AppTheme.spaceMd,
+                  AppTheme.spaceSm,
+                ),
+                child: SectionHeader(title: 'Daftar Peminjaman'),
+              ),
+              Expanded(child: _body(context, provider, loans)),
+            ],
           ),
         ),
       ),
     );
   }
+
+  /// Daftar yang lolos filter status dan kata kunci, disaring di memori.
+  List<LoanDetail> _visible(List<LoanDetail> all) {
+    final today = DateTime.now();
+    return all
+        .where(
+          (detail) =>
+              (_filter?.matches(detail.loan, today) ?? true) &&
+              detail.matchesQuery(_query),
+        )
+        .toList();
+  }
+
+  /// Filter pilih-satu: "Semua" mengosongkan pilihan, chip kategori selalu
+  /// menggantikan pilihan sebelumnya.
+  List<Widget> _filters() {
+    return [
+      Padding(
+        padding: const EdgeInsets.only(right: AppTheme.spaceSm),
+        child: FilterPill(
+          label: 'Semua',
+          active: _filter == null,
+          onTap: () => setState(() => _filter = null),
+        ),
+      ),
+      for (final filter in LoanFilter.values)
+        Padding(
+          padding: const EdgeInsets.only(right: AppTheme.spaceSm),
+          child: FilterPill(
+            label: filter.label,
+            active: _filter == filter,
+            onTap: () => setState(() => _filter = filter),
+          ),
+        ),
+    ];
+  }
+
+  Widget _body(
+    BuildContext context,
+    LoanProvider provider,
+    List<LoanDetail> loans,
+  ) {
+    if (provider.errorMessage != null && loans.isEmpty) {
+      return ErrorState(
+        message: provider.errorMessage!,
+        onRetry: () => context.read<LoanProvider>().load(),
+      );
+    }
+
+    if (loans.isEmpty) {
+      // Spinner hanya menggantikan layar saat belum ada isi; penyegaran tetap
+      // menampilkan baris sebelumnya.
+      if (provider.isLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (_query.trim().isNotEmpty) {
+        return EmptyState(
+          icon: Icons.search_off,
+          title: 'Peminjaman tidak ditemukan',
+          message: 'Tidak ada peminjaman yang cocok dengan "$_query".',
+          actions: [
+            OutlinedButton(
+              onPressed: _clearSearch,
+              child: const Text('Bersihkan pencarian'),
+            ),
+          ],
+        );
+      }
+      if (_filter != null) {
+        return EmptyState(
+          icon: Icons.filter_alt_off_outlined,
+          title: 'Tidak ada peminjaman di filter ini',
+          message: 'Pilih "Semua" untuk melihat seluruh peminjaman.',
+          actions: [
+            OutlinedButton(
+              onPressed: () => setState(() => _filter = null),
+              child: const Text('Lihat semua'),
+            ),
+          ],
+        );
+      }
+      return EmptyState(
+        icon: Icons.assignment_outlined,
+        title: 'Belum ada peminjaman',
+        message: 'Catat peminjaman pertama lewat tombol di bawah.',
+        actions: [
+          FilledButton.icon(
+            onPressed: () => _openScreen(const LoanFormScreen()),
+            icon: const Icon(Icons.add),
+            label: const Text('Catat pinjam'),
+          ),
+        ],
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => context.read<LoanProvider>().load(),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(
+          AppTheme.spaceMd,
+          0,
+          AppTheme.spaceMd,
+          AppTheme.spaceBottomBar,
+        ),
+        itemCount: loans.length,
+        separatorBuilder: (_, _) => const SizedBox(height: AppTheme.space10),
+        itemBuilder: (context, index) {
+          final detail = loans[index];
+          return LoanCard(
+            key: ValueKey(detail.loan.id),
+            detail: detail,
+            onTap: () => _openScreen(LoanDetailScreen(detail: detail)),
+          );
+        },
+      ),
+    );
+  }
 }
 
-/// Blok identitas di atas permukaan biru pekat solid, tanpa gradien.
-class _Hero extends StatelessWidget {
-  const _Hero();
+/// Tiga angka pokok peminjaman dalam satu baris.
+class _MetricsRow extends StatelessWidget {
+  const _MetricsRow({required this.loans, required this.isLoading});
+
+  final LoanStats loans;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.spaceMd),
-      decoration: BoxDecoration(
-        color: AppTheme.deep,
-        borderRadius: BorderRadius.circular(AppTheme.radiusPanel),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    // IntrinsicHeight menyamakan tinggi ketiga kartu; tanpa itu, tinggi tiap
+    // kartu mengikuti isinya sendiri dan barisnya terlihat bergerigi.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0x1AFFFFFF),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  border: Border.all(color: const Color(0x33FFFFFF)),
-                ),
-                child: Text(
-                  'PB',
-                  style: AppText.style(
-                    size: 12,
-                    weight: 700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppTheme.space12),
-              Expanded(
-                child: Text(
-                  'Peminjaman Barang',
-                  style: AppText.headlineSm.copyWith(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spaceMd),
-          Text(
-            'Pinjam dan kembali\ntercatat otomatis',
-            style: AppText.headlineLg.copyWith(
-              fontSize: 28,
-              height: 1.12,
-              letterSpacing: -0.6,
-              color: Colors.white,
+          Expanded(
+            child: _MetricCard(
+              icon: Icons.outbox_outlined,
+              value: loans.active,
+              label: 'Dipinjam',
+              caption: 'peminjaman aktif',
+              color: AppTheme.primary,
+              background: AppTheme.chip,
+              isLoading: isLoading,
             ),
           ),
-          const SizedBox(height: AppTheme.spaceSm),
-          Text(
-            'Stok berkurang saat dipinjam, dan kembali saat peminjaman '
-            'ditandai selesai.',
-            style: AppText.bodySm.copyWith(
-              fontSize: 13,
-              height: 1.45,
-              color: const Color(0xCCFFFFFF),
+          const SizedBox(width: AppTheme.spaceSm),
+          Expanded(
+            child: _MetricCard(
+              icon: Icons.warning_amber_rounded,
+              value: loans.late,
+              label: 'Terlambat',
+              caption: 'perlu ditagih',
+              color: AppTheme.danger,
+              background: AppTheme.dangerSoft,
+              isLoading: isLoading,
+              highlighted: true,
             ),
           ),
-          const SizedBox(height: AppTheme.spaceMd),
-          const _OfflinePill(),
+          const SizedBox(width: AppTheme.spaceSm),
+          Expanded(
+            child: _MetricCard(
+              icon: Icons.task_alt,
+              value: loans.returned,
+              label: 'Selesai',
+              caption: 'total selesai',
+              color: AppTheme.ok,
+              background: AppTheme.okSoft,
+              isLoading: isLoading,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Aplikasi tidak punya server, jadi statusnya selalu data lokal.
-class _OfflinePill extends StatelessWidget {
-  const _OfflinePill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-          AppTheme.space10,
-          AppTheme.space6,
-          AppTheme.space12,
-          AppTheme.space6,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0x1AFFFFFF),
-          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-          border: Border.all(color: const Color(0x33FFFFFF)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFF9CCBFF),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceSm),
-            Text(
-              'Mode offline, data lokal',
-              style: AppText.style(
-                size: 12,
-                weight: 500,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Empat angka pokok dalam susunan dua kolom.
-class _StatsGrid extends StatelessWidget {
-  const _StatsGrid({
-    required this.items,
-    required this.loans,
-    required this.memuat,
-  });
-
-  final ItemStats items;
-  final LoanStats loans;
-  final bool memuat;
-
-  @override
-  Widget build(BuildContext context) {
-    final barang = items.totalItems;
-    final dipinjam = loans.activeUnits;
-    final terlambat = loans.late;
-    final habis = items.outOfStock;
-
-    return Column(
-      children: [
-        _Pair(
-          children: [
-            Expanded(
-              child: _StatCard(
-                icon: Icons.inventory_2_outlined,
-                value: formatCount(barang),
-                label: 'Barang terdaftar',
-                catatan: '${formatCount(items.totalUnits)} unit',
-                warna: AppTheme.primary,
-                latar: AppTheme.primaryContainer,
-                memuat: memuat,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceSm),
-            Expanded(
-              child: _StatCard(
-                icon: Icons.assignment_outlined,
-                value: formatCount(dipinjam),
-                label: 'Sedang dipinjam',
-                catatan: '${formatCount(loans.active)} peminjaman aktif',
-                warna: AppTheme.link,
-                latar: AppTheme.chip,
-                memuat: memuat,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppTheme.spaceSm),
-        _Pair(
-          children: [
-            Expanded(
-              child: _StatCard(
-                icon: Icons.schedule,
-                value: formatCount(terlambat),
-                label: 'Terlambat',
-                catatan: terlambat == 0
-                    ? 'semua tepat waktu'
-                    : 'lewat tanggal kembali',
-                warna: AppTheme.danger,
-                latar: AppTheme.dangerSoft,
-                memuat: memuat,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceSm),
-            Expanded(
-              child: _StatCard(
-                icon: Icons.block,
-                value: formatCount(habis),
-                label: 'Stok habis',
-                catatan: habis == 0 ? 'semua tersedia' : 'barang tidak tersedia',
-                warna: AppTheme.warn,
-                latar: AppTheme.warnSoft,
-                memuat: memuat,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Satu angka pokok: ikon berwarna, nilai besar, label, dan catatan kecil.
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+/// Satu angka pokok: label, kotak ikon, nilai besar, dan catatan kecil.
+///
+/// [highlighted] memakai latar penuh berwarna supaya kartu "Terlambat" langsung
+/// terlihat tanpa harus dibaca.
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
     required this.icon,
     required this.value,
     required this.label,
-    required this.catatan,
-    required this.warna,
-    required this.latar,
-    required this.memuat,
+    required this.caption,
+    required this.color,
+    required this.background,
+    required this.isLoading,
+    this.highlighted = false,
   });
 
   final IconData icon;
-  final String value;
+  final int value;
   final String label;
-  final String catatan;
-  final Color warna;
-  final Color latar;
-  final bool memuat;
+  final String caption;
+  final Color color;
+  final Color background;
+  final bool isLoading;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
     return Panel(
       padding: const EdgeInsets.all(AppTheme.space12),
       radius: AppTheme.radiusXl,
+      fill: highlighted ? background : null,
+      border: highlighted ? background : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: latar,
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            ),
-            child: Icon(icon, size: 20, color: warna),
-          ),
-          const SizedBox(height: AppTheme.space12),
-          Text(
-            memuat ? '…' : value,
-            style: AppText.headlineMd.copyWith(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.ink,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppTheme.space2),
-          Text(
-            label,
-            style: AppText.style(size: 12.5, weight: 600, color: AppTheme.ink),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppTheme.space2),
-          Text(
-            catatan,
-            style: AppText.bodySm.copyWith(color: AppTheme.muted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Peminjaman terbaru, atau ajakan memulai saat riwayatnya masih kosong.
-class _RecentList extends StatelessWidget {
-  const _RecentList({
-    required this.daftar,
-    required this.memuat,
-    required this.onTapItem,
-    required this.onLihatSemua,
-  });
-
-  final List<LoanDetail> daftar;
-  final bool memuat;
-  final ValueChanged<LoanDetail> onTapItem;
-  final VoidCallback onLihatSemua;
-
-  @override
-  Widget build(BuildContext context) {
-    if (memuat && daftar.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: AppTheme.spaceMd),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (daftar.isEmpty) {
-      return Panel(
-        radius: AppTheme.radiusXl,
-        child: Row(
-          children: [
-            const Icon(Icons.history, size: 22, color: AppTheme.muted),
-            const SizedBox(width: AppTheme.space10),
-            Expanded(
-              child: Text(
-                'Belum ada peminjaman tercatat.',
-                style: AppText.bodySm.copyWith(color: AppTheme.muted),
-              ),
-            ),
-            TextButton(
-              onPressed: onLihatSemua,
-              child: const Text('Buka'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        for (var i = 0; i < daftar.length; i++) ...[
-          if (i > 0) const SizedBox(height: AppTheme.spaceSm),
-          LoanCard(
-            detail: daftar[i],
-            onTap: () => onTapItem(daftar[i]),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Pintasan ke aksi yang paling sering dipakai, dua kolom.
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({
-    required this.onCatatPinjam,
-    required this.onTambahBarang,
-    required this.onImpor,
-    required this.onLihatBarang,
-  });
-
-  final VoidCallback onCatatPinjam;
-  final VoidCallback onTambahBarang;
-  final VoidCallback onImpor;
-  final VoidCallback onLihatBarang;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _Pair(
-          children: [
-            Expanded(
-              child: _ActionCard(
-                icon: Icons.add_task,
-                title: 'Catat pinjam',
-                subtitle: 'Peminjaman baru',
-                utama: true,
-                onTap: onCatatPinjam,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceSm),
-            Expanded(
-              child: _ActionCard(
-                icon: Icons.upload_file,
-                title: 'Impor berkas',
-                subtitle: 'Excel atau CSV',
-                onTap: onImpor,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppTheme.spaceSm),
-        _Pair(
-          children: [
-            Expanded(
-              child: _ActionCard(
-                icon: Icons.add_box_outlined,
-                title: 'Tambah barang',
-                subtitle: 'Daftarkan alat',
-                onTap: onTambahBarang,
-              ),
-            ),
-            const SizedBox(width: AppTheme.spaceSm),
-            Expanded(
-              child: _ActionCard(
-                icon: Icons.inventory_2_outlined,
-                title: 'Lihat barang',
-                subtitle: 'Daftar dan stok',
-                onTap: onLihatBarang,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Dua kartu berdampingan dengan tinggi yang disamakan.
-///
-/// `IntrinsicHeight` wajib di sini: `CrossAxisAlignment.stretch` di dalam
-/// `ListView` yang tingginya tak terbatas akan meminta tinggi tak hingga,
-/// dan seluruh daftar gagal digambar.
-class _Pair extends StatelessWidget {
-  const _Pair({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
-      ),
-    );
-  }
-}
-
-/// Kartu pintasan. Versi [utama] memakai biru penuh sebagai aksi terpenting.
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.utama = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool utama;
-
-  @override
-  Widget build(BuildContext context) {
-    final latar = utama ? AppTheme.primary : AppTheme.cardSolid;
-    final judul = utama ? Colors.white : AppTheme.ink;
-    final sub = utama ? const Color(0xCCFFFFFF) : AppTheme.muted;
-    final ikon = utama ? Colors.white : AppTheme.primary;
-
-    return Material(
-      color: latar,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        side: utama
-            ? BorderSide.none
-            : const BorderSide(color: AppTheme.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppTheme.space12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+          Row(
             children: [
-              Icon(icon, size: 22, color: ikon),
-              const SizedBox(height: AppTheme.space12),
-              Text(
-                title,
-                style: AppText.style(size: 13.5, weight: 600, color: judul),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppText.style(
+                    size: 12,
+                    weight: 600,
+                    color: highlighted ? color : AppTheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const SizedBox(height: AppTheme.space2),
-              Text(
-                subtitle,
-                style: AppText.bodySm.copyWith(color: sub),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: AppTheme.spaceXs),
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: highlighted ? color : background,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: Icon(
+                  icon,
+                  size: 15,
+                  color: highlighted ? AppTheme.onPrimary : color,
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: AppTheme.spaceSm),
+          Text(
+            isLoading ? '…' : formatCount(value),
+            style: AppText.style(
+              size: 22,
+              weight: 700,
+              color: highlighted ? color : AppTheme.ink,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppTheme.space2),
+          Text(
+            caption,
+            style: AppText.bodySm.copyWith(
+              color: highlighted ? color : AppTheme.muted,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

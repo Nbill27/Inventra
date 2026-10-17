@@ -19,12 +19,16 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLate = loan.isLateOn(today ?? DateTime.now());
+    final now = today ?? DateTime.now();
+    final isLate = loan.isLateOn(now);
+    // Jumlah hari ikut ditulis supaya beranda dan riwayat tidak berbeda:
+    // "Terlambat" saja tidak memberi tahu separah apa keterlambatannya.
     final label = switch (loan.status) {
       LoanStatus.returned => 'Selesai',
-      LoanStatus.borrowed => isLate ? 'Terlambat' : 'Dipinjam',
+      LoanStatus.borrowed =>
+        isLate ? 'Terlambat ${loan.daysLateOn(now)} hari' : 'Dipinjam',
     };
-    final style = _Styles.of(label);
+    final style = _Styles.of(loan.status, isLate: isLate);
 
     return StatusPill(
       label: label,
@@ -72,9 +76,11 @@ class _Styles {
     dot: AppTheme.danger,
   );
 
-  static _Styles of(String label) => switch (label) {
-        'Selesai' => _returned,
-        'Terlambat' => _late,
-        _ => _borrowed,
+  /// Dipilih dari status dan keterlambatan, bukan dari teks label, supaya
+  /// label yang menyertakan jumlah hari tetap mendapat warna yang benar.
+  static _Styles of(LoanStatus status, {required bool isLate}) =>
+      switch (status) {
+        LoanStatus.returned => _returned,
+        LoanStatus.borrowed => isLate ? _late : _borrowed,
       };
 }

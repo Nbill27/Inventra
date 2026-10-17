@@ -6,6 +6,7 @@ import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/dates.dart';
 import '../core/formatters.dart';
+import '../core/validation.dart';
 import '../models/item.dart';
 import '../models/loan.dart';
 import '../providers/item_provider.dart';
@@ -162,7 +163,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
                       labelText: 'Nama peminjam *',
-                      hintText: 'mis. Rani - XI RPL 1',
+                      hintText: 'Budi Santoso',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (value) => _requiredText(value, 'Nama peminjam'),
@@ -172,11 +173,17 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                     controller: _contact,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(contactMaxLength),
+                    ],
                     decoration: const InputDecoration(
                       labelText: 'Kontak',
-                      hintText: 'nomor HP atau kelas',
+                      hintText: 'nomor HP, email, atau WA',
+                      helperText: 'Boleh dikosongkan. Maksimal '
+                          '$contactMaxLength karakter.',
                       prefixIcon: Icon(Icons.phone_outlined),
                     ),
+                    validator: _contactValidator,
                   ),
                 ],
               ),
@@ -241,7 +248,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                     textInputAction: TextInputAction.newline,
                     decoration: const InputDecoration(
                       labelText: 'Catatan',
-                      hintText: 'mis. untuk kegiatan class meeting',
+                      hintText: 'Misal: tujuan peminjaman, kondisi barang, atau catatan lain.',
                       alignLabelWithHint: true,
                     ),
                   ),
@@ -412,6 +419,25 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     }
     if (text.length > 100) {
       return '$field maksimal 100 karakter.';
+    }
+    return null;
+  }
+
+  /// Kontak boleh kosong. Aturan panjang dan karakternya sama dengan
+  /// repository, ditambah batas bawah supaya salah ketik pendek seperti "08"
+  /// ketahuan sebelum disimpan.
+  String? _contactValidator(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) {
+      return null;
+    }
+    final problem = contactProblem(text);
+    if (problem != null) {
+      return problem;
+    }
+    final penting = text.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    if (penting.length < 6) {
+      return 'Kontak minimal 6 huruf atau angka.';
     }
     return null;
   }

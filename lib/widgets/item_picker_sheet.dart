@@ -187,7 +187,7 @@ class _ItemOption extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusXl),
           side: BorderSide(
-            color: selected ? AppTheme.primary : AppTheme.outlineVariant,
+            color: selected ? AppTheme.primary : AppTheme.outline,
             width: selected ? 1.5 : 1,
           ),
         ),

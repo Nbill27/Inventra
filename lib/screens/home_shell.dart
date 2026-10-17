@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/home_provider.dart';
 import '../providers/item_provider.dart';
 import '../providers/loan_provider.dart';
 import 'home_screen.dart';
 import 'item_list_screen.dart';
 import 'loan_list_screen.dart';
 
-/// Tiga tujuan: Beranda, Barang, Peminjaman. Semuanya tetap hidup di dalam
+/// Tiga tujuan: Beranda, Barang, Riwayat. Semuanya tetap hidup di dalam
 /// [IndexedStack], sehingga teks pencarian dan posisi gulir bertahan saat
 /// berpindah tab.
+///
+/// Tab "Beranda" menampilkan ringkasan [HomeScreen], sedangkan daftar lengkap
+/// peminjaman ada di tab "Riwayat" ([LoanListScreen]).
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, this.initialTab = 0});
 
@@ -23,7 +25,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   static const _beranda = 0;
   static const _barang = 1;
-  static const _peminjaman = 2;
+  static const _riwayat = 2;
 
   late int _index = widget.initialTab;
 
@@ -35,9 +37,9 @@ class _HomeShellState extends State<HomeShell> {
     }
     setState(() => _index = index);
     await switch (index) {
-      _beranda => context.read<HomeProvider>().load(),
+      _beranda => context.read<LoanProvider>().load(),
       _barang => context.read<ItemProvider>().load(),
-      _peminjaman => context.read<LoanProvider>().load(),
+      _riwayat => context.read<LoanProvider>().load(),
       _ => Future<void>.value(),
     };
   }
@@ -48,8 +50,8 @@ class _HomeShellState extends State<HomeShell> {
     // `OnBackPressedDispatcher`, dan `PopScope` yang menjadi kaitannya. Jadi
     // perilakunya diatur di sini, bukan di MainActivity.
     //
-    // Back hanya menutup aplikasi dari Beranda. Dari tab lain, back lebih dulu
-    // kembali ke Beranda supaya aplikasi tidak langsung tertutup.
+    // Back hanya menutup aplikasi dari tab Beranda. Dari tab lain, back lebih
+    // dulu kembali ke tab Beranda supaya aplikasi tidak langsung tertutup.
     return PopScope(
       canPop: _index == _beranda,
       onPopInvokedWithResult: (didPop, _) {
@@ -62,7 +64,7 @@ class _HomeShellState extends State<HomeShell> {
         body: IndexedStack(
           index: _index,
           children: [
-            HomeScreen(onBukaTab: _onSelect),
+            const HomeScreen(),
             const ItemListScreen(),
             const LoanListScreen(),
           ],
@@ -84,7 +86,7 @@ class _HomeShellState extends State<HomeShell> {
             NavigationDestination(
               icon: Icon(Icons.assignment_outlined),
               selectedIcon: Icon(Icons.assignment),
-              label: 'Peminjaman',
+              label: 'Riwayat',
             ),
           ],
         ),
@@ -92,11 +94,11 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
-  /// Dipakai tombol back: pindah ke Beranda tanpa menutup aplikasi.
+  /// Dipakai tombol back: pindah ke tab Beranda tanpa menutup aplikasi.
   void _kembaliKeBeranda() {
     setState(() => _index = _beranda);
     // Sama seperti berpindah tab lewat navigasi bawah: datanya dimuat ulang,
     // karena isinya bisa berubah sejak tab ini terakhir dilihat.
-    context.read<HomeProvider>().load();
+    context.read<LoanProvider>().load();
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/dates.dart';
 import '../core/exceptions.dart';
 import '../models/loan.dart';
 import '../models/loan_detail.dart';
+import '../models/loan_stats.dart';
 import '../repositories/loan_repository.dart';
 
 class LoanProvider extends ChangeNotifier {
@@ -12,18 +14,15 @@ class LoanProvider extends ChangeNotifier {
   final LoanRepository _repository;
 
   List<LoanDetail> _loans = const [];
+  LoanStats _stats = const LoanStats();
   bool _isLoading = false;
   String? _errorMessage;
-
-  /// Empty means "all statuses", so the list screen can offer a multi-select
-  /// filter without a separate "everything" flag.
-  Set<LoanStatus> _statusFilters = const {};
   int _requestId = 0;
 
   List<LoanDetail> get loans => _loans;
+  LoanStats get stats => _stats;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  Set<LoanStatus> get statusFilters => _statusFilters;
 
   Future<void> load() async {
     final requestId = ++_requestId;
@@ -32,11 +31,17 @@ class LoanProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final loans = await _repository.getAllDetailed(statuses: _statusFilters);
+      // Daftar dan angka ringkasan diambil bersamaan supaya Beranda tidak
+      // menunggu dua kali.
+      final results = await Future.wait<Object>([
+        _repository.getAllDetailed(),
+        _repository.stats(today: dateOnly(DateTime.now())),
+      ]);
       if (requestId != _requestId) {
         return;
       }
-      _loans = loans;
+      _loans = results[0] as List<LoanDetail>;
+      _stats = results[1] as LoanStats;
     } on AppException catch (error) {
       if (requestId == _requestId) {
         _errorMessage = error.message;
@@ -52,12 +57,6 @@ class LoanProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
-  }
-
-  /// An empty set shows every status.
-  Future<void> filterBy(Set<LoanStatus> statuses) async {
-    _statusFilters = statuses;
-    await load();
   }
 
   /// Returns the error message to show, or null when the write succeeded.

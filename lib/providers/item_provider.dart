@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/exceptions.dart';
 import '../models/item.dart';
+import '../models/item_filter.dart';
 import '../models/item_import.dart';
 import '../repositories/item_repository.dart';
 
@@ -15,12 +16,16 @@ class ItemProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   String _query = '';
+
+  /// `null` berarti semua kategori; hanya satu kategori bisa aktif sekaligus.
+  ItemFilter? _filter;
   int _requestId = 0;
 
   List<Item> get items => _items;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String get query => _query;
+  ItemFilter? get filter => _filter;
 
   Future<void> load() async {
     final requestId = ++_requestId;
@@ -29,7 +34,7 @@ class ItemProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final items = await _repository.getAll(query: _query);
+      final items = await _repository.getAll(query: _query, filter: _filter);
       if (requestId != _requestId) {
         return;
       }
@@ -53,6 +58,12 @@ class ItemProvider extends ChangeNotifier {
 
   Future<void> search(String value) async {
     _query = value;
+    await load();
+  }
+
+  /// `null` menampilkan semua kategori.
+  Future<void> filterBy(ItemFilter? filter) async {
+    _filter = filter;
     await load();
   }
 

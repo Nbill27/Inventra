@@ -1,4 +1,4 @@
-import '../models/item.dart';
+import 'item.dart';
 
 /// One data row that passed validation and is ready to be written.
 ///

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peminjaman_barang/core/exceptions.dart';
 import 'package:peminjaman_barang/db/database_helper.dart';
+import 'package:peminjaman_barang/models/item_filter.dart';
 import 'package:peminjaman_barang/repositories/item_repository.dart';
 import 'package:peminjaman_barang/repositories/loan_repository.dart';
 
@@ -77,6 +78,36 @@ void main() {
     expect((await items.getAll(query: 'proyek')).map((i) => i.name), ['Proyektor']);
     expect((await items.getAll(query: 'kb-99')).map((i) => i.name), ['Kabel HDMI']);
     expect((await items.getAll(query: '')).length, 2);
+  });
+
+  test('filter kategori: tersedia, habis, dan dipinjam', () async {
+    await items.create(itemFixture(name: 'Proyektor', stockTotal: 5));
+    final habis = await items.create(itemFixture(name: 'Kabel HDMI', stockTotal: 3));
+    final sebagian = await items.create(itemFixture(name: 'Roll Meter', stockTotal: 4));
+
+    // Kabel HDMI habis dipinjam; Roll Meter hanya sebagian.
+    await loans.create(loanFixture(itemId: habis, quantity: 3));
+    await loans.create(loanFixture(itemId: sebagian, quantity: 1));
+
+    Future<List<String>> names(ItemFilter filter) async =>
+        (await items.getAll(filter: filter)).map((i) => i.name).toList();
+
+    expect(await names(ItemFilter.available), ['Proyektor', 'Roll Meter']);
+    expect(await names(ItemFilter.outOfStock), ['Kabel HDMI']);
+    expect(await names(ItemFilter.borrowed), ['Kabel HDMI', 'Roll Meter']);
+    expect((await items.getAll()).length, 3);
+  });
+
+  test('filter kategori digabung dengan pencarian', () async {
+    final proyektor = await items.create(itemFixture(name: 'Proyektor', stockTotal: 5));
+    await items.create(itemFixture(name: 'Proyektor Mini', stockTotal: 5));
+    await loans.create(loanFixture(itemId: proyektor, quantity: 5));
+
+    final hasil = await items.getAll(
+      query: 'proyektor',
+      filter: ItemFilter.outOfStock,
+    );
+    expect(hasil.map((i) => i.name), ['Proyektor']);
   });
 
   test('FR-B6: updating replaces the editable fields', () async {

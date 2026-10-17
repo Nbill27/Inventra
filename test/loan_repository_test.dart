@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peminjaman_barang/core/exceptions.dart';
 import 'package:peminjaman_barang/db/database_helper.dart';
 import 'package:peminjaman_barang/models/loan.dart';
+import 'package:peminjaman_barang/models/loan_filter.dart';
 import 'package:peminjaman_barang/repositories/item_repository.dart';
 import 'package:peminjaman_barang/repositories/loan_repository.dart';
 
@@ -167,22 +168,34 @@ void main() {
     expect(list.first.loan.loanDate, DateTime(2026, 10, 9));
   });
 
-  test('FR-L6: the list can be filtered by status', () async {
+  test('FR-L6: the list can be filtered by category', () async {
     final itemId = await items.create(itemFixture(stockTotal: 10));
-    final activeId = await loans.create(loanFixture(itemId: itemId, quantity: 1));
+    final activeId = await loans.create(
+      loanFixture(itemId: itemId, quantity: 1, dueDate: DateTime(2026, 10, 20)),
+    );
+    final lateId = await loans.create(
+      loanFixture(itemId: itemId, quantity: 1, dueDate: DateTime(2026, 10, 5)),
+    );
     final doneId = await loans.create(loanFixture(itemId: itemId, quantity: 2));
     await loans.markReturned(loanId: doneId, returnDate: DateTime(2026, 10, 6));
 
-    expect((await loans.getAllDetailed()).length, 2);
-    final active = await loans.getAllDetailed(statuses: {LoanStatus.borrowed});
-    expect(active.single.loan.id, activeId);
-    final done = await loans.getAllDetailed(statuses: {LoanStatus.returned});
+    final today = DateTime(2026, 10, 10);
+
+    expect((await loans.getAllDetailed()).length, 3);
+
+    // "Dipinjam" mencakup yang sudah lewat tenggat.
+    final borrowed = await loans.getAllDetailed(filter: LoanFilter.borrowed);
+    expect(borrowed.length, 2);
+    expect(borrowed.map((d) => d.loan.id), containsAll([activeId, lateId]));
+
+    final late = await loans.getAllDetailed(
+      filter: LoanFilter.late,
+      today: today,
+    );
+    expect(late.single.loan.id, lateId);
+
+    final done = await loans.getAllDetailed(filter: LoanFilter.returned);
     expect(done.single.loan.id, doneId);
-    // Several statuses at once returns both.
-    final both = await loans.getAllDetailed(statuses: LoanStatus.values.toSet());
-    expect(both.length, 2);
-    // An empty set means every status.
-    expect((await loans.getAllDetailed(statuses: const {})).length, 2);
   });
 
   test('6.3.3: changing the quantity recalculates stock', () async {

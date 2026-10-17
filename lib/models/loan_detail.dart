@@ -7,4 +7,18 @@ class LoanDetail {
 
   final Loan loan;
   final Item item;
+
+  /// Cocok dengan nama peminjam, nama barang, atau kode barang.
+  ///
+  /// Pencarian dilakukan di memori supaya tiap layar bisa menyaring daftarnya
+  /// sendiri tanpa mengubah data bersama di provider.
+  bool matchesQuery(String query) {
+    final keyword = query.trim().toLowerCase();
+    if (keyword.isEmpty) {
+      return true;
+    }
+    return loan.borrowerName.toLowerCase().contains(keyword) ||
+        item.name.toLowerCase().contains(keyword) ||
+        (item.code ?? '').toLowerCase().contains(keyword);
+  }
 }

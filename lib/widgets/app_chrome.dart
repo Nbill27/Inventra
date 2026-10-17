@@ -23,7 +23,7 @@ class RoundIconButton extends StatelessWidget {
       child: Material(
         color: AppTheme.chip,
         shape: const CircleBorder(
-          side: BorderSide(color: AppTheme.outlineVariant),
+          side: BorderSide(color: AppTheme.outline),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -36,7 +36,7 @@ class RoundIconButton extends StatelessWidget {
               icon,
               size: 20,
               color: onTap == null
-                  ? AppTheme.outline
+                  ? AppTheme.outlineVariant
                   : AppTheme.onPrimaryContainer,
             ),
           ),
@@ -136,21 +136,21 @@ class FilterPill extends StatelessWidget {
   const FilterPill({
     super.key,
     required this.label,
-    required this.aktif,
+    required this.active,
     required this.onTap,
   });
 
   final String label;
-  final bool aktif;
+  final bool active;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: aktif ? AppTheme.primary : AppTheme.surfaceContainerLowest,
+      color: active ? AppTheme.primary : AppTheme.surfaceContainerLowest,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        side: aktif
+        side: active
             ? BorderSide.none
             : const BorderSide(color: AppTheme.chip),
       ),
@@ -166,8 +166,8 @@ class FilterPill extends StatelessWidget {
             label,
             style: AppText.style(
               size: 12.5,
-              weight: aktif ? 600 : 500,
-              color: aktif ? Colors.white : AppTheme.ink,
+              weight: active ? 600 : 500,
+              color: active ? AppTheme.onPrimary : AppTheme.ink,
             ),
           ),
         ),

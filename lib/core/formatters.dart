@@ -7,13 +7,21 @@ import 'package:intl/intl.dart';
 Future<void> initFormatters() => initializeDateFormatting('id_ID');
 
 final DateFormat _dayMonthYear = DateFormat('d MMM yyyy', 'id_ID');
+final DateFormat _dayMonth = DateFormat('d MMM', 'id_ID');
 final DateFormat _fullDate = DateFormat('EEEE, d MMMM yyyy', 'id_ID');
+final DateFormat _monthYear = DateFormat('MMMM yyyy', 'id_ID');
 
 /// List and form fields: `16 Okt 2026`.
 String formatDisplayDate(DateTime date) => _dayMonthYear.format(date);
 
+/// Rentang tanggal ringkas di kartu: `16 Okt`.
+String formatShortDate(DateTime date) => _dayMonth.format(date);
+
 /// Detail header: `Jumat, 16 Oktober 2026`.
 String formatLongDate(DateTime date) => _fullDate.format(date);
+
+/// Judul kelompok riwayat: `Oktober 2026`.
+String formatMonthYear(DateTime date) => _monthYear.format(date);
 
 /// Angka dengan pemisah ribuan gaya Indonesia: `100000` menjadi `100.000`.
 ///

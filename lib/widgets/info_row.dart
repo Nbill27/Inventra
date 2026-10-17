@@ -12,27 +12,23 @@ class InfoRow extends StatelessWidget {
   const InfoRow({
     super.key,
     required this.label,
-    required this.nilai,
-    this.garisBawah = true,
-    this.nilaiRataKanan = true,
+    required this.value,
+    this.showDivider = true,
   });
 
   final String label;
-  final String? nilai;
-  final bool garisBawah;
-
-  /// Nilai rata kanan (gaya detail) atau rata kiri (gaya sheet).
-  final bool nilaiRataKanan;
+  final String? value;
+  final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    final teks = (nilai == null || nilai!.isEmpty) ? '-' : nilai!;
-    final gayaNilai = AppText.style(size: 13, weight: 600, color: AppTheme.ink);
+    final text = (value == null || value!.isEmpty) ? '-' : value!;
+    final valueStyle = AppText.style(size: 13, weight: 600, color: AppTheme.ink);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: AppTheme.space12),
       decoration: BoxDecoration(
-        border: garisBawah
+        border: showDivider
             ? const Border(bottom: BorderSide(color: AppTheme.chip))
             : null,
       ),
@@ -50,12 +46,9 @@ class InfoRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppTheme.space12),
-          if (nilaiRataKanan)
-            Expanded(
-              child: Text(teks, textAlign: TextAlign.right, style: gayaNilai),
-            )
-          else
-            Text(teks, style: gayaNilai),
+          Expanded(
+            child: Text(text, textAlign: TextAlign.right, style: valueStyle),
+          ),
         ],
       ),
     );

@@ -4,6 +4,7 @@ import '../core/exceptions.dart';
 import '../core/validation.dart';
 import '../db/database_helper.dart';
 import '../models/item.dart';
+import '../models/item_filter.dart';
 import '../models/item_import.dart';
 import '../models/item_stats.dart';
 import '../models/loan.dart';
@@ -16,27 +17,52 @@ class ItemRepository {
 
   static const _table = 'items';
 
-  Future<List<Item>> getAll({String? query}) async {
+  /// [filter] menyaring daftar ke satu kategori stok; `null` berarti semua
+  /// barang. Syarat kategori digabung dengan pencarian memakai AND.
+  Future<List<Item>> getAll({String? query, ItemFilter? filter}) async {
     final db = await _helper.database;
     final keyword = query?.trim() ?? '';
-    final rows = keyword.isEmpty
-        ? await db.query(_table, orderBy: 'name COLLATE NOCASE ASC')
-        : await db.query(
-            _table,
-            where: 'name LIKE ? OR code LIKE ?',
-            whereArgs: ['%$keyword%', '%$keyword%'],
-            orderBy: 'name COLLATE NOCASE ASC',
-          );
+    final conditions = <String>[];
+    final args = <Object?>[];
+
+    if (keyword.isNotEmpty) {
+      conditions.add('(name LIKE ? OR code LIKE ?)');
+      args.addAll(['%$keyword%', '%$keyword%']);
+    }
+    if (filter != null) {
+      conditions.add(_filterCondition(filter));
+    }
+
+    final rows = await db.query(
+      _table,
+      where: conditions.isEmpty ? null : conditions.join(' AND '),
+      whereArgs: args.isEmpty ? null : args,
+      orderBy: 'name COLLATE NOCASE ASC',
+    );
     return rows.map(Item.fromMap).toList();
   }
 
+  /// `borrowed` bersifat turunan, jadi syaratnya membandingkan dua kolom stok.
+  String _filterCondition(ItemFilter filter) => switch (filter) {
+        ItemFilter.available => 'stock_available > 0',
+        ItemFilter.outOfStock => 'stock_available = 0',
+        ItemFilter.borrowed => 'stock_total > stock_available',
+      };
+
   Future<Item> getById(int id) async {
     final db = await _helper.database;
-    final rows = await db.query(_table, where: 'id = ?', whereArgs: [id], limit: 1);
-    if (rows.isEmpty) {
+    final item = await _findById(db, id);
+    if (item == null) {
       throw const NotFoundException('Barang tidak ditemukan.');
     }
-    return Item.fromMap(rows.first);
+    return item;
+  }
+
+  /// Satu baris berdasarkan id, atau `null` kalau tidak ada. Dipakai `getById`
+  /// dan `update` supaya bentuk query-nya cuma ditulis sekali.
+  Future<Item?> _findById(DatabaseExecutor db, int id) async {
+    final rows = await db.query(_table, where: 'id = ?', whereArgs: [id], limit: 1);
+    return rows.isEmpty ? null : Item.fromMap(rows.first);
   }
 
   /// Ringkasan untuk beranda, dihitung database dalam satu query agregat.
@@ -60,9 +86,15 @@ class ItemRepository {
   }
 
   /// A new item starts fully available, so `stock_available` mirrors `stock_total`.
+  ///
+  /// Kode dipakai mencocokkan duplikat saat impor, jadi kode yang sudah dipakai
+  /// barang lain ditolak lebih dulu.
   Future<int> create(Item item) async {
     final db = await _helper.database;
-    return db.insert(_table, _validatedValues(item));
+    return db.transaction((txn) async {
+      await _requireCodeFree(txn, optionalText(item.code));
+      return txn.insert(_table, _validatedValues(item));
+    });
   }
 
   /// Imports many items inside one transaction, so a failure halfway cannot
@@ -116,7 +148,44 @@ class ItemRepository {
     return ImportReport(added: added, skipped: skipped, issues: issues);
   }
 
-  Map<String, Object?> _validatedValues(Item item) => {
+  /// Kode kosong selalu boleh. Selain itu kode harus belum dipakai barang lain,
+  /// dibandingkan tanpa membedakan huruf besar/kecil dan spasi tepi.
+  Future<void> _requireCodeFree(
+    DatabaseExecutor db,
+    String? code, {
+    int? exceptId,
+  }) async {
+    if (code == null) {
+      return;
+    }
+    final rows = await db.query(
+      _table,
+      columns: ['id'],
+      where: 'code IS NOT NULL AND LOWER(TRIM(code)) = ?'
+          '${exceptId == null ? '' : ' AND id <> ?'}',
+      whereArgs: [
+        code.toLowerCase(),
+        ?exceptId,
+      ],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      throw ValidationException('Kode "$code" sudah dipakai barang lain.');
+    }
+  }
+
+  Map<String, Object?> _validatedValues(Item item) {
+    final stockTotal = requireNonNegativeInt(item.stockTotal, field: 'Stok total');
+    return {
+      ..._identityColumns(item),
+      'stock_total': stockTotal,
+      // Barang baru sepenuhnya tersedia, jadi ketersediaan menyalin total.
+      'stock_available': stockTotal,
+    };
+  }
+
+  /// Kolom teks yang sama untuk penambahan maupun perubahan.
+  Map<String, Object?> _identityColumns(Item item) => {
         'no_urut': optionalText(item.noUrut),
         'name': requireText(item.name, field: 'Nama alat ukur'),
         'code': optionalText(item.code),
@@ -124,8 +193,6 @@ class ItemRepository {
         'brand': optionalText(item.brand),
         'pic': optionalText(item.pic),
         'status': optionalText(item.status),
-        'stock_total': requireNonNegativeInt(item.stockTotal, field: 'Stok total'),
-        'stock_available': requireNonNegativeInt(item.stockTotal, field: 'Stok total'),
       };
 
   /// FR-B8: changing the total shifts availability by the same delta, so units
@@ -135,16 +202,14 @@ class ItemRepository {
     if (id == null) {
       throw const ValidationException('Barang belum tersimpan.');
     }
-    final name = requireText(item.name, field: 'Nama alat ukur');
     final stockTotal = requireNonNegativeInt(item.stockTotal, field: 'Stok total');
 
     final db = await _helper.database;
     await db.transaction((txn) async {
-      final rows = await txn.query(_table, where: 'id = ?', whereArgs: [id], limit: 1);
-      if (rows.isEmpty) {
+      final current = await _findById(txn, id);
+      if (current == null) {
         throw const NotFoundException('Barang tidak ditemukan.');
       }
-      final current = Item.fromMap(rows.first);
       final borrowed = current.borrowed;
       final available = stockTotal - borrowed;
       if (available < 0) {
@@ -152,22 +217,14 @@ class ItemRepository {
           'Stok total tidak boleh kurang dari $borrowed unit yang sedang dipinjam.',
         );
       }
-      await txn.update(
-        _table,
-        {
-          'no_urut': optionalText(item.noUrut),
-          'name': name,
-          'code': optionalText(item.code),
-          'range_text': optionalText(item.range),
-          'brand': optionalText(item.brand),
-          'pic': optionalText(item.pic),
-          'status': optionalText(item.status),
-          'stock_total': stockTotal,
-          'stock_available': available,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
+      final values = {
+        ..._identityColumns(item),
+        'stock_total': stockTotal,
+        'stock_available': available,
+      };
+      // Kode milik barang ini sendiri tidak dihitung sebagai bentrok.
+      await _requireCodeFree(txn, optionalText(item.code), exceptId: id);
+      await txn.update(_table, values, where: 'id = ?', whereArgs: [id]);
     });
   }
 

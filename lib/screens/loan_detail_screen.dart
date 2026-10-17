@@ -12,8 +12,8 @@ import '../widgets/app_background.dart';
 import '../widgets/confirm_dialog.dart';
 import '../widgets/content_width.dart';
 import '../widgets/info_row.dart';
+import '../widgets/loan_progress_card.dart';
 import '../widgets/panel.dart';
-import '../widgets/status_chip.dart';
 import 'loan_form_screen.dart';
 
 /// FR-L7: seluruh bidang satu peminjaman, plus aksi yang mengubah keadaannya.
@@ -209,36 +209,30 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
           ),
           children: [
             Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    loan.borrowerName,
-                    style: AppText.headlineMd.copyWith(color: AppTheme.ink),
+                  Expanded(
+                    child: Text(
+                      loan.borrowerName,
+                      style: AppText.headlineMd.copyWith(color: AppTheme.ink),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const SizedBox(height: AppTheme.space6),
+                  const SizedBox(width: AppTheme.spaceSm),
                   Text(
-                    item.name,
-                    style: AppText.bodyMd.copyWith(color: AppTheme.muted),
-                  ),
-                  const SizedBox(height: AppTheme.space12),
-                  Row(
-                    children: [
-                      StatusChip(loan: loan),
-                      const Spacer(),
-                      Text(
-                        '${loan.quantity} unit',
-                        style: AppText.style(
-                          size: 20,
-                          weight: 700,
-                          color: AppTheme.ink,
-                        ),
-                      ),
-                    ],
+                    '${loan.quantity} unit',
+                    style: AppText.style(
+                      size: 20,
+                      weight: 700,
+                      color: AppTheme.ink,
+                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: AppTheme.spaceMd),
+            LoanProgressCard(detail: widget.detail),
             const SizedBox(height: AppTheme.spaceMd),
             Panel(
               padding: const EdgeInsets.symmetric(
@@ -248,24 +242,28 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
                 children: [
                   InfoRow(
                     label: 'Barang',
-                    nilai: _itemLabel(item.name, item.code),
+                    value: _itemLabel(item.name, item.code),
                   ),
-                  InfoRow(label: 'Jumlah', nilai: '${loan.quantity} unit'),
-                  InfoRow(label: 'Kontak', nilai: loan.contact),
+                  InfoRow(label: 'Jumlah', value: '${loan.quantity} unit'),
+                  InfoRow(label: 'Kontak', value: loan.contact),
                   InfoRow(
                     label: 'Tanggal pinjam',
-                    nilai: formatLongDate(loan.loanDate),
+                    value: formatLongDate(loan.loanDate),
                   ),
                   InfoRow(
                     label: 'Rencana kembali',
-                    nilai: formatLongDate(loan.dueDate),
+                    value: formatLongDate(loan.dueDate),
                   ),
                   if (loan.returnDate != null)
                     InfoRow(
                       label: 'Dikembalikan',
-                      nilai: formatLongDate(loan.returnDate!),
+                      value: formatLongDate(loan.returnDate!),
                     ),
-                  InfoRow(label: 'Catatan', nilai: loan.note, garisBawah: false),
+                  InfoRow(
+                    label: 'Catatan',
+                    value: loan.note,
+                    showDivider: false,
+                  ),
                 ],
               ),
             ),
@@ -325,7 +323,7 @@ class _RoundAction extends StatelessWidget {
         child: Material(
           color: AppTheme.chip,
           shape: const CircleBorder(
-            side: BorderSide(color: AppTheme.outlineVariant),
+            side: BorderSide(color: AppTheme.outline),
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -337,7 +335,7 @@ class _RoundAction extends StatelessWidget {
               child: Icon(
                 icon,
                 size: 20,
-                color: onTap == null ? AppTheme.outline : color,
+                color: onTap == null ? AppTheme.outlineVariant : color,
               ),
             ),
           ),

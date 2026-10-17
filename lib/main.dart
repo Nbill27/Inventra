@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import 'core/app_theme.dart';
 import 'core/formatters.dart';
-import 'providers/home_provider.dart';
 import 'providers/item_provider.dart';
 import 'providers/loan_provider.dart';
 import 'screens/home_shell.dart';
@@ -34,12 +33,11 @@ class PeminjamanBarangApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ItemProvider()..load()),
         ChangeNotifierProvider(create: (_) => LoanProvider()..load()),
       ],
       child: MaterialApp(
-        title: 'Peminjaman Barang',
+        title: 'Inventra',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         // Latar solid global di belakang seluruh Navigator, sehingga semua

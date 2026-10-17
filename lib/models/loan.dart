@@ -60,6 +60,12 @@ class Loan {
   bool isLateOn(DateTime today) =>
       status == LoanStatus.borrowed && isBeforeDay(dueDate, today);
 
+  /// Berapa hari sudah lewat tenggat; 0 kalau belum lewat. Ditaruh di model
+  /// supaya label "Terlambat N hari" sama di beranda, riwayat, dan detail.
+  int daysLateOn(DateTime today) => isLateOn(today)
+      ? dateOnly(today).difference(dateOnly(dueDate)).inDays
+      : 0;
+
   Map<String, Object?> toMap() => {
         'id': id,
         'item_id': itemId,

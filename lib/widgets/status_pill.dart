@@ -41,9 +41,9 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = foreground ?? Colors.white;
+    final fg = foreground ?? AppTheme.onPrimary;
     final warnaTitik = dotColor ?? fg;
-    final teks = upper ? label.toUpperCase() : label;
+    final text = upper ? label.toUpperCase() : label;
     final style = upper
         ? AppText.upper(size: fontSize, weight: 600, color: fg)
         : AppText.style(size: fontSize, weight: 600, color: fg);
@@ -73,7 +73,7 @@ class StatusPill extends StatelessWidget {
             const SizedBox(width: AppTheme.space6),
           ],
           // Flexible: label panjang turun baris, tidak melebar keluar layar.
-          Flexible(child: Text(teks, style: style)),
+          Flexible(child: Text(text, style: style)),
         ],
       ),
     );
