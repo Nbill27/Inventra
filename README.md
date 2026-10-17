@@ -105,6 +105,11 @@ flutter analyze
 flutter test
 ```
 
+Sebagian tes impor masih memakai pesan validasi versi lama, jadi hasil `flutter test`
+saat ini `90 lulus, 8 gagal` — semuanya di `test/item_import_test.dart` dan
+`test/item_import_screen_test.dart`. Yang gagal adalah harapan di dalam tes, bukan
+perilaku impor di aplikasi.
+
 ## Catatan teknis
 
 - `dependency_overrides: jni_flutter 1.0.3` di `pubspec.yaml`: versi 1.0.4+1
