@@ -117,8 +117,10 @@ class _LoanListScreenState extends State<LoanListScreen> {
   }
 
   /// Daftar yang lolos pencarian, filter status, dan periode.
-  List<LoanDetail> _visible(List<LoanDetail> all, String periodKey) {
-    final today = DateTime.now();
+  ///
+  /// [today] datang dari provider supaya kategori "Terlambat" sama dengan yang
+  /// dipakai ringkasan, walau aplikasi sudah lewat tengah malam.
+  List<LoanDetail> _visible(List<LoanDetail> all, String periodKey, DateTime today) {
     final period = _periodFrom(periodKey);
     return all.where((detail) {
       final loan = detail.loan;
@@ -145,7 +147,7 @@ class _LoanListScreenState extends State<LoanListScreen> {
     // Bulan yang dipilih bisa hilang setelah data berubah; jatuh ke semua
     // periode supaya daftar tidak terjebak kosong.
     final periodKey = periodKeys.contains(_periodKey) ? _periodKey : 'all';
-    final visible = _visible(loans, periodKey);
+    final visible = _visible(loans, periodKey, provider.today);
 
     return Scaffold(
       appBar: AppBar(
@@ -270,7 +272,7 @@ class _LoanListScreenState extends State<LoanListScreen> {
   /// Filter pilih-satu: "Semua" mengosongkan pilihan.
   Widget _chips() {
     return SizedBox(
-      height: 38,
+      height: AppTheme.touch,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [

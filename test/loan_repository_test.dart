@@ -125,7 +125,9 @@ void main() {
   test('a finished loan is never late', () async {
     final itemId = await items.create(itemFixture());
     final loanId = await loans.create(loanFixture(itemId: itemId));
-    await loans.markReturned(loanId: loanId, returnDate: DateTime(2026, 10, 30));
+    // Tanggal kembali harus sudah lewat (repository menolak tanggal di masa
+    // depan), tapi masih setelah tenggat supaya terlambatnya teruji.
+    await loans.markReturned(loanId: loanId, returnDate: DateTime(2026, 10, 12));
 
     final detail = await loans.getDetailById(loanId);
     expect(detail.loan.isLateOn(DateTime(2026, 11, 30)), isFalse);

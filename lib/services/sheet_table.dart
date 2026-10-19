@@ -19,9 +19,11 @@ CsvTable tableFromGrid(
   }
 
   if (headerRow == null) {
+    final numbers = <int>[];
     return CsvTable(
       header: [for (var i = 0; i < rows.first.length; i++) 'Kolom ${i + 1}'],
-      rows: _body(rows, rows.first.length, stopAtBlank),
+      rows: _body(rows, rows.first.length, stopAtBlank, numbers, start: 1),
+      rowNumbers: numbers,
     );
   }
   if (headerRow < 0 || headerRow >= rows.length) {
@@ -35,9 +37,17 @@ CsvTable tableFromGrid(
 
   final header = _labels(rows[headerRow]);
   final width = _widest(rows.sublist(headerRow + 1), header.length);
+  final numbers = <int>[];
   return CsvTable(
     header: _pad(header, width),
-    rows: _body(rows.sublist(headerRow + 1), width, stopAtBlank),
+    rows: _body(
+      rows.sublist(headerRow + 1),
+      width,
+      stopAtBlank,
+      numbers,
+      start: headerRow + 2,
+    ),
+    rowNumbers: numbers,
   );
 }
 
@@ -91,6 +101,7 @@ CsvTable _fromBlocks(
 ) {
   final labels = [for (final column in runs.first) rows[headerRow][column]];
   final body = <List<String>>[];
+  final numbers = <int>[];
 
   for (final run in runs) {
     var stopped = false;
@@ -104,23 +115,31 @@ CsvTable _fromBlocks(
         continue;
       }
       body.add(row);
+      numbers.add(r + 1);
     }
   }
 
   if (body.isEmpty) {
     throw const CsvException('Tidak ada baris data di bawah baris judul.');
   }
-  return CsvTable(header: _labels(labels), rows: body);
+  return CsvTable(header: _labels(labels), rows: body, rowNumbers: numbers);
 }
 
 /// Drops blank rows, and cuts the table at the first blank row when asked.
+///
+/// [numbers] receives the 1-based sheet row of every kept row, so an error can
+/// point at the row the admin sees in Excel. [start] is the sheet row of the
+/// first entry in [rows].
 List<List<String>> _body(
   List<List<String>> rows,
   int width,
   bool stopAtBlank,
-) {
+  List<int> numbers, {
+  int start = 1,
+}) {
   final body = <List<String>>[];
-  for (final row in rows) {
+  for (var i = 0; i < rows.length; i++) {
+    final row = rows[i];
     if (row.every((cell) => cell.isEmpty)) {
       if (stopAtBlank) {
         break;
@@ -128,6 +147,7 @@ List<List<String>> _body(
       continue;
     }
     body.add(_pad(row, width));
+    numbers.add(start + i);
   }
   if (body.isEmpty) {
     throw const CsvException('Tidak ada baris data di bawah baris judul.');

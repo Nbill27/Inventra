@@ -197,38 +197,24 @@ class HistoryCard extends StatelessWidget {
     Loan loan,
     DateTime today,
   ) {
-    if (loan.status == LoanStatus.returned) {
-      final returnDate = loan.returnDate;
-      if (returnDate != null && isBeforeDay(loan.dueDate, returnDate)) {
-        final days = dateOnly(returnDate)
-            .difference(dateOnly(loan.dueDate))
-            .inDays;
-        return (
-          label: 'Terlambat $days hari',
+    final view = loan.statusOn(today);
+    return switch (view.state) {
+      LoanTimeliness.returnedLate || LoanTimeliness.overdue => (
+          label: view.label,
           background: AppTheme.dangerSoft,
           foreground: AppTheme.danger,
-        );
-      }
-      return (
-        label: 'Tepat Waktu',
-        background: AppTheme.okSoft,
-        foreground: AppTheme.ok,
-      );
-    }
-
-    if (loan.isLateOn(today)) {
-      return (
-        label: 'Terlambat ${loan.daysLateOn(today)} hari',
-        background: AppTheme.dangerSoft,
-        foreground: AppTheme.danger,
-      );
-    }
-
-    return (
-      label: 'Dipinjam',
-      background: AppTheme.chip,
-      foreground: AppTheme.primary,
-    );
+        ),
+      LoanTimeliness.returnedOnTime => (
+          label: view.label,
+          background: AppTheme.okSoft,
+          foreground: AppTheme.ok,
+        ),
+      LoanTimeliness.active => (
+          label: view.label,
+          background: AppTheme.chip,
+          foreground: AppTheme.primary,
+        ),
+    };
   }
 
   /// Lama pinjam dalam hari; peminjaman yang belum kembali dihitung sampai hari

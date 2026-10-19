@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/app_text.dart';
 import '../core/app_theme.dart';
 import '../core/dates.dart';
+import '../core/exceptions.dart';
 import '../core/formatters.dart';
 import '../core/validation.dart';
 import '../models/item.dart';
@@ -14,11 +15,16 @@ import '../providers/loan_provider.dart';
 import '../widgets/app_background.dart';
 import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/error_state.dart';
 import '../widgets/item_picker_sheet.dart';
 import '../widgets/panel.dart';
 import '../widgets/section_header.dart';
 
 /// Melayani "catat peminjaman" (FR-L2) dan "ubah peminjaman" (FR-L8).
+///
+/// Hasil navigasinya bermakna: `true` setelah simpan berhasil, `null` saat
+/// dibatalkan. Layar pemanggil memakainya untuk tahu apakah datanya sudah
+/// berubah, jadi "batal" tidak lagi dianggap sama dengan "berhasil".
 class LoanFormScreen extends StatefulWidget {
   const LoanFormScreen({super.key, this.loan});
 
@@ -39,8 +45,10 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
   /// Barang dibaca lewat provider, bukan dari salinan yang sudah difilter layar
   /// daftar: pencarian yang tersisa di tab Barang bisa menyembunyikan barang
   /// yang justru mau dipinjam.
-  late final Future<List<Item>> _items =
-      context.read<ItemProvider>().allItems();
+  ///
+  /// Future-nya disimpan di state, bukan `late final`, supaya kegagalan muat
+  /// bisa diulang tanpa menutup form.
+  Future<List<Item>>? _items;
 
   int? _itemId;
   late DateTime _loanDate;
@@ -68,7 +76,24 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     _itemId = loan?.itemId;
     _loanDate = loan?.loanDate ?? today;
     _dueDate = loan?.dueDate ?? today.add(const Duration(days: 7));
+    _loadItems();
   }
+
+  /// Mengambil daftar barang lewat provider. Dipanggil ulang oleh tombol
+  /// "Coba lagi" saat pemuatan pertama gagal.
+  void _loadItems() {
+    _items = context.read<ItemProvider>().allItems();
+  }
+
+  void _retryItems() {
+    setState(_loadItems);
+  }
+
+  /// Pesan galat daftar barang: pakai pesan domain kalau ada, kalau tidak
+  /// kalimat umum yang tetap menjelaskan tindakannya.
+  String _readItemsError(Object? error) => error is AppException
+      ? error.message
+      : 'Gagal memuat daftar barang. Periksa penyimpanan lalu coba lagi.';
 
   @override
   void dispose() {
@@ -104,6 +129,14 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
+          }
+          // Gagal memuat bukan "belum ada barang": pesannya dibedakan dan
+          // disediakan tombol ulangi supaya admin tidak buntu di form kosong.
+          if (snapshot.hasError) {
+            return ErrorState(
+              message: _readItemsError(snapshot.error),
+              onRetry: _retryItems,
+            );
           }
           final items = snapshot.data ?? const <Item>[];
           if (items.isEmpty) {
@@ -171,7 +204,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   const SizedBox(height: AppTheme.space12),
                   TextFormField(
                     controller: _contact,
-                    keyboardType: TextInputType.phone,
+                    keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     inputFormatters: [
                       LengthLimitingTextInputFormatter(contactMaxLength),
@@ -181,7 +214,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                       hintText: 'nomor HP, email, atau WA',
                       helperText: 'Boleh dikosongkan. Maksimal '
                           '$contactMaxLength karakter.',
-                      prefixIcon: Icon(Icons.phone_outlined),
+                      prefixIcon: Icon(Icons.contact_phone_outlined),
                     ),
                     validator: _contactValidator,
                   ),
@@ -435,6 +468,11 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
     if (problem != null) {
       return problem;
     }
+    // Bentuk email sudah dinilai [contactProblem]; hitungan huruf/angka
+    // minimum hanya masuk akal untuk nomor telepon.
+    if (text.contains('@')) {
+      return null;
+    }
     final penting = text.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
     if (penting.length < 6) {
       return 'Kontak minimal 6 huruf atau angka.';
@@ -549,7 +587,9 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
       messenger.showSnackBar(SnackBar(content: Text(error)));
       return;
     }
-    navigator.pop();
+    // `true` menandai simpan berhasil, supaya layar pemanggil bisa membedakan
+    // "berhasil" dari "dibatalkan" dan tidak ikut menutup saat dibatalkan.
+    navigator.pop(true);
     messenger.showSnackBar(
       SnackBar(
         content: Text(

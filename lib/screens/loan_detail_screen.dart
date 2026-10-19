@@ -20,7 +20,7 @@ import 'loan_form_screen.dart';
 ///
 /// Setelah perubahan, layar ini ditutup alih-alih digambar ulang, karena baris
 /// yang membukanya adalah snapshot: daftar di belakang dimuat ulang provider
-/// dan menampilkan nilai terbaru.
+/// dan menampilkan nilai terbaru. Membatalkan form tidak menutup layar ini.
 class LoanDetailScreen extends StatefulWidget {
   const LoanDetailScreen({super.key, required this.detail});
 
@@ -118,14 +118,18 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   }
 
   Future<void> _edit() async {
-    await Navigator.of(context).push(
+    // Form mengembalikan true hanya kalau simpan berhasil. Saat dibatalkan,
+    // layar detail tetap terbuka seperti yang diharapkan admin.
+    final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => LoanFormScreen(loan: widget.detail.loan),
       ),
     );
-    if (!mounted) {
+    if (!mounted || saved != true) {
       return;
     }
+    // Simpan berhasil: daftar di belakang sudah dimuat ulang provider,
+    // sedangkan snapshot di layar ini sudah basi, jadi detail ditutup.
     Navigator.of(context).pop();
   }
 
@@ -274,7 +278,25 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
   }
 
   /// Aksi utama layar: selalu terlihat dan dalam jangkauan jempol.
+  ///
+  /// Peminjaman yang tanggal pinjamnya masih di depan belum bisa dikembalikan:
+  /// repository menolak tanggal kembali di masa depan, jadi tombolnya dimatikan
+  /// dengan alasan yang terbaca alih-alih membiarkan admin menekan lalu gagal.
   Widget _returnBar() {
+    final notStarted = isBeforeDay(
+      dateOnly(DateTime.now()),
+      dateOnly(widget.detail.loan.loanDate),
+    );
+    final button = FilledButton.icon(
+      onPressed: (_busy || notStarted) ? null : _markReturned,
+      style: FilledButton.styleFrom(
+        backgroundColor: AppTheme.deep,
+      ),
+      icon: const Icon(Icons.assignment_turned_in_outlined, size: 20),
+      label: Text(
+        notStarted ? 'Belum bisa dikembalikan' : 'Tandai dikembalikan',
+      ),
+    );
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: AppTheme.cardSolid,
@@ -283,14 +305,11 @@ class _LoanDetailScreenState extends State<LoanDetailScreen> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppTheme.spaceMd),
-          child: FilledButton.icon(
-            onPressed: _busy ? null : _markReturned,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.deep,
-            ),
-            icon: const Icon(Icons.assignment_turned_in_outlined, size: 20),
-            label: const Text('Tandai dikembalikan'),
-          ),
+          // Tooltip hanya saat tombol mati: tombol nonaktif tidak bisa dibaca
+          // alasannya oleh pembaca layar, jadi sebabnya ditempel di sini.
+          child: notStarted
+              ? Tooltip(message: 'Tanggal pinjam belum tiba.', child: button)
+              : button,
         ),
       ),
     );

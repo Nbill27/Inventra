@@ -16,6 +16,61 @@ enum LoanStatus {
       );
 }
 
+/// Keadaan satu peminjaman pada hari tertentu. "Terlambat" tidak disimpan,
+/// jadi selalu diturunkan dari tanggal.
+enum LoanTimeliness { active, overdue, returnedOnTime, returnedLate }
+
+/// Label dan angka keterlambatan yang dipakai bersama oleh kartu riwayat,
+/// daftar, dan berkas ekspor.
+class LoanStatusView {
+  const LoanStatusView({
+    required this.state,
+    required this.daysLate,
+    required this.label,
+  });
+
+  final LoanTimeliness state;
+  final int daysLate;
+  final String label;
+
+  bool get isLate =>
+      state == LoanTimeliness.overdue || state == LoanTimeliness.returnedLate;
+
+  factory LoanStatusView.of(Loan loan, DateTime today) {
+    if (loan.status == LoanStatus.returned) {
+      final returnDate = loan.returnDate;
+      if (returnDate != null && isBeforeDay(loan.dueDate, returnDate)) {
+        final days = dateOnly(returnDate)
+            .difference(dateOnly(loan.dueDate))
+            .inDays;
+        return LoanStatusView(
+          state: LoanTimeliness.returnedLate,
+          daysLate: days,
+          label: 'Terlambat $days hari',
+        );
+      }
+      return const LoanStatusView(
+        state: LoanTimeliness.returnedOnTime,
+        daysLate: 0,
+        label: 'Tepat Waktu',
+      );
+    }
+    if (loan.isLateOn(today)) {
+      final days = loan.daysLateOn(today);
+      return LoanStatusView(
+        state: LoanTimeliness.overdue,
+        daysLate: days,
+        label: 'Terlambat $days hari',
+      );
+    }
+    return const LoanStatusView(
+      state: LoanTimeliness.active,
+      daysLate: 0,
+      label: 'Dipinjam',
+    );
+  }
+}
+
 class Loan {
   const Loan({
     this.id,
@@ -65,6 +120,10 @@ class Loan {
   int daysLateOn(DateTime today) => isLateOn(today)
       ? dateOnly(today).difference(dateOnly(dueDate)).inDays
       : 0;
+
+  /// Satu klasifikasi status untuk UI dan ekspor, supaya keduanya tidak
+  /// berbeda cerita tentang peminjaman yang sama.
+  LoanStatusView statusOn(DateTime today) => LoanStatusView.of(this, today);
 
   Map<String, Object?> toMap() => {
         'id': id,

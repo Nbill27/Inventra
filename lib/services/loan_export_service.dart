@@ -67,11 +67,10 @@ class LoanExportService {
     ];
   }
 
-  /// The same labels the list chip shows, so the file reads like the screen.
-  static String statusLabel(Loan loan, DateTime today) => switch (loan.status) {
-        LoanStatus.returned => 'Selesai',
-        LoanStatus.borrowed => loan.isLateOn(today) ? 'Terlambat' : 'Dipinjam',
-      };
+  /// The same label the history card shows, so a returned-late loan stays
+  /// identifiable instead of collapsing into a plain "Selesai".
+  static String statusLabel(Loan loan, DateTime today) =>
+      loan.statusOn(today).label;
 
   /// Encodes the history in the background, since building a workbook or a long
   /// CSV is pure CPU work that would otherwise stall the UI.
@@ -128,11 +127,32 @@ class LoanExportService {
     return Uint8List.fromList(utf8.encode('\uFEFF$buffer'));
   }
 
-  /// Quotes a cell only when it would otherwise break the row apart.
+  /// Quotes a cell only when it would otherwise break the row apart, and
+  /// prefixes text a spreadsheet would treat as a formula.
+  ///
+  /// Names, borrowers, and notes come from other people's files, so a value
+  /// like `=1+1` must stay text when the CSV is opened in a spreadsheet.
   static String _csvCell(String value) {
-    if (!value.contains(RegExp(r'[;"\r\n]'))) {
+    final safe = _neutralize(value);
+    if (!safe.contains(RegExp(r'[;"\r\n]'))) {
+      return safe;
+    }
+    return '"${safe.replaceAll('"', '""')}"';
+  }
+
+  static String _neutralize(String value) {
+    if (value.isEmpty) {
       return value;
     }
-    return '"${value.replaceAll('"', '""')}"';
+    final first = value[0];
+    if (first == '=' ||
+        first == '+' ||
+        first == '-' ||
+        first == '@' ||
+        first == '\t' ||
+        first == '\r') {
+      return "'$value";
+    }
+    return value;
   }
 }

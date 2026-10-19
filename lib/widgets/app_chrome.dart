@@ -109,13 +109,16 @@ class SearchField extends StatelessWidget {
               valueListenable: controller,
               builder: (context, value, _) {
                 if (value.text.isEmpty) return const SizedBox.shrink();
-                return InkWell(
-                  onTap: onClear,
-                  customBorder: const CircleBorder(),
-                  child: const SizedBox(
-                    width: AppTheme.touch,
-                    height: AppTheme.touch,
-                    child: Icon(Icons.close, size: 18, color: AppTheme.muted),
+                return Tooltip(
+                  message: 'Hapus pencarian',
+                  child: InkWell(
+                    onTap: onClear,
+                    customBorder: const CircleBorder(),
+                    child: const SizedBox(
+                      width: AppTheme.touch,
+                      height: AppTheme.touch,
+                      child: Icon(Icons.close, size: 18, color: AppTheme.muted),
+                    ),
                   ),
                 );
               },
@@ -146,28 +149,42 @@ class FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: active ? AppTheme.primary : AppTheme.surfaceContainerLowest,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        side: active
-            ? BorderSide.none
-            : const BorderSide(color: AppTheme.chip),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTheme.spaceMd,
-            vertical: AppTheme.spaceSm,
+    // MergeSemantics menyatukan label teks dan aksi ketuk jadi satu simpul,
+    // lalu `selected` memberi tahu pembaca layar chip mana yang sedang aktif.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: active,
+        child: Material(
+          color: active ? AppTheme.primary : AppTheme.surfaceContainerLowest,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+            side: active
+                ? BorderSide.none
+                : const BorderSide(color: AppTheme.chip),
           ),
-          child: Text(
-            label,
-            style: AppText.style(
-              size: 12.5,
-              weight: active ? 600 : 500,
-              color: active ? AppTheme.onPrimary : AppTheme.ink,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            // Tinggi chip mengikuti baris filter (48 dp); Center menjaga teks
+            // tetap di tengah, bukan menempel ke atas.
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTheme.spaceMd,
+                  vertical: AppTheme.spaceSm,
+                ),
+                child: Text(
+                  label,
+                  style: AppText.style(
+                    size: 12.5,
+                    weight: active ? 600 : 500,
+                    color: active ? AppTheme.onPrimary : AppTheme.ink,
+                  ),
+                ),
+              ),
             ),
           ),
         ),

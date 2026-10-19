@@ -1,0 +1,6 @@
+# Salin jadi android/key.properties lalu isi dengan kunci rilis Anda.
+# Berkas key.properties tidak di-commit (lihat .gitignore).
+storePassword=ubah-ini
+keyPassword=ubah-ini
+keyAlias=ubah-ini
+storeFile=<path ke berkas .jks>

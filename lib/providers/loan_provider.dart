@@ -8,10 +8,15 @@ import '../models/loan_stats.dart';
 import '../repositories/loan_repository.dart';
 
 class LoanProvider extends ChangeNotifier {
-  LoanProvider({LoanRepository? repository})
-      : _repository = repository ?? LoanRepository();
+  LoanProvider({LoanRepository? repository, DateTime Function()? clock})
+      : _repository = repository ?? LoanRepository(),
+        _clock = clock ?? DateTime.now;
 
   final LoanRepository _repository;
+
+  /// Sumber "hari ini". Bisa diganti di test supaya pergantian hari tidak
+  /// perlu menunggu tengah malam sungguhan.
+  final DateTime Function() _clock;
 
   List<LoanDetail> _loans = const [];
   LoanStats _stats = const LoanStats();
@@ -19,13 +24,32 @@ class LoanProvider extends ChangeNotifier {
   String? _errorMessage;
   int _requestId = 0;
 
+  /// Hari data terakhir dimuat. Dipakai [isStale] untuk tahu data sudah basi.
+  DateTime? _loadedOn;
+
   List<LoanDetail> get loans => _loans;
   LoanStats get stats => _stats;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  /// Hari ini menurut jam aplikasi, dipakai filter "Terlambat" dan ringkasan.
+  DateTime get today => dateOnly(_clock());
+
+  /// True saat data terakhir dimuat pada hari yang berbeda.
+  ///
+  /// Kategori "Terlambat" dan ringkasan dihitung saat memuat, jadi aplikasi
+  /// yang dibiarkan terbuka sampai lewat tengah malam akan menampilkan angka
+  /// kemarin. Layar memanggil [load] lagi ketika ini true.
+  bool get isStale {
+    final loadedOn = _loadedOn;
+    return loadedOn == null || loadedOn != today;
+  }
+
   Future<void> load() async {
     final requestId = ++_requestId;
+    // Dipatok sekali supaya daftar dan ringkasan memakai hari yang sama,
+    // walau pemuatan menyeberangi pergantian hari.
+    final loadDay = today;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -35,13 +59,14 @@ class LoanProvider extends ChangeNotifier {
       // menunggu dua kali.
       final results = await Future.wait<Object>([
         _repository.getAllDetailed(),
-        _repository.stats(today: dateOnly(DateTime.now())),
+        _repository.stats(today: loadDay),
       ]);
       if (requestId != _requestId) {
         return;
       }
       _loans = results[0] as List<LoanDetail>;
       _stats = results[1] as LoanStats;
+      _loadedOn = loadDay;
     } on AppException catch (error) {
       if (requestId == _requestId) {
         _errorMessage = error.message;

@@ -92,6 +92,16 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   bool _firstRowIsHeader = true;
   bool _showAdvanced = false;
   CsvTable? _table;
+
+  /// Rencana dihitung saat tabel berubah, bukan di setiap build, supaya file
+  /// besar tidak diparse ulang hanya karena layar digambar ulang.
+  ImportPlan? _plan;
+  String? _planError;
+
+  /// Pemetaan manual untuk file tanpa judul kolom.
+  int? _nameColumn;
+  int? _stockColumn;
+
   bool _busy = false;
   String? _error;
   ImportReport? _report;
@@ -147,6 +157,8 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     _sheets = const [];
     _sheetIndex = 0;
     _headerRow = null;
+    _nameColumn = null;
+    _stockColumn = null;
     _showAdvanced = false;
 
     if (looksLikeXlsx(picked.bytes)) {
@@ -175,6 +187,8 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   /// baris judul, atau lembar yang berbeda ikut terbaca otomatis.
   void _readTable() {
     _report = null;
+    _plan = null;
+    _planError = null;
     try {
       _table = _format == PickedFileFormat.spreadsheet ? _readSheet() : _readCsv();
       _error = null;
@@ -182,10 +196,34 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
       _table = null;
       _error = error.message;
     }
+    _replan();
     // Saat belum ada yang bisa dibaca, buka pengaturan supaya baris judul bisa
     // diperbaiki tanpa mencari tombolnya.
-    if (_table == null || _planFor(_table!) == null) {
+    if (_table == null || _plan == null) {
       _showAdvanced = true;
+    }
+  }
+
+  /// Menghitung ulang rencana tanpa membaca berkas lagi. Dipanggil saat stok
+  /// atau pemetaan kolom berubah.
+  void _replan() {
+    final table = _table;
+    if (table == null) {
+      _plan = null;
+      _planError = null;
+      return;
+    }
+    try {
+      _plan = _importer.plan(
+        table: table,
+        stockPerRow: _stockPerRowValue,
+        nameColumn: _nameColumn,
+        stockColumn: _stockColumn,
+      );
+      _planError = null;
+    } on AppException catch (error) {
+      _plan = null;
+      _planError = error.message;
     }
   }
 
@@ -197,16 +235,6 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
 
   CsvTable _readCsv() =>
       parseCsv(decodeText(_file!.bytes), firstRowIsHeader: _firstRowIsHeader);
-
-  /// Null selama berkas belum bisa dibaca sebagai barang, sehingga ringkasan
-  /// dan tombol impor tetap tersembunyi sampai ada yang bisa diimpor.
-  ImportPlan? _planFor(CsvTable table) {
-    try {
-      return _importer.plan(table: table, stockPerRow: _stockPerRowValue);
-    } on AppException {
-      return null;
-    }
-  }
 
   /// Jumlah negatif bukan stok, jadi dibaca sebagai "belum diisi".
   int? get _stockPerRowValue {
@@ -227,12 +255,20 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
       if (!mounted) {
         return;
       }
+      // Rows rejected at preview time never reach the repository, so the final
+      // report has to carry them too. Otherwise a mixed file says "0 gagal"
+      // even though the preview listed skipped rows.
+      final merged = ImportReport(
+        added: report.added,
+        skipped: report.skipped,
+        issues: [...plan.issues, ...report.issues],
+      );
       setState(() {
         _busy = false;
-        _report = report;
+        _report = merged;
       });
       messenger.showSnackBar(
-        SnackBar(content: Text('${report.added} barang ditambahkan.')),
+        SnackBar(content: Text('${merged.added} barang ditambahkan.')),
       );
     } on AppException catch (error) {
       if (!mounted) {
@@ -335,15 +371,47 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   }
 
   /// Satu panel yang paling penting: berapa barang siap, dan tombol impor.
+  ///
+  /// Saat rencana belum bisa dibuat, panel tetap menampilkan isian yang
+  /// dibutuhkan (pemetaan kolom dan stok), bukan hanya pesan error yang
+  /// menghilangkan jalan keluarnya.
   Widget _summaryPanel(CsvTable table) {
-    final plan = _planFor(table);
-    final hasStockColumn =
-        plan?.detected.any((column) => column.label == 'Stok total') ?? false;
+    final plan = _plan;
+    final detected = _importer.detectColumns(table);
+    final hasStockColumn = _stockColumn != null ||
+        detected.any((column) => column.label == 'Stok total');
+    final hasNameColumn = _nameColumn != null ||
+        detected.any((column) => column.label == 'Nama alat ukur');
 
     if (plan == null) {
-      return _errorPanel(
-        'Belum bisa diimpor. Pastikan baris judul berisi kolom "NAMA ALAT '
-        'UKUR", dan isi "Stok tiap barang" kalau file tidak punya kolom stok.',
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _errorPanel(
+            _planError ??
+                'Belum bisa diimpor dengan pengaturan berkas saat ini.',
+          ),
+          const SizedBox(height: AppTheme.spaceMd),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!hasNameColumn) ...[
+                  _mappingControls(table),
+                  const SizedBox(height: AppTheme.spaceMd),
+                ],
+                if (!hasStockColumn) ...[
+                  _stockPerRowField(showError: true),
+                  const SizedBox(height: AppTheme.spaceMd),
+                ],
+                Text(
+                  'Isian di atas langsung memperbarui pratinjau.',
+                  style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                ),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
@@ -401,6 +469,10 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
             const SizedBox(height: AppTheme.spaceMd),
             _stockPerRowField(),
           ],
+          if (_nameColumn != null) ...[
+            const SizedBox(height: AppTheme.spaceMd),
+            _mappingControls(table),
+          ],
           const SizedBox(height: AppTheme.spaceMd),
           FilledButton.icon(
             onPressed: _busy || !plan.canImport ? null : () => _import(plan),
@@ -412,6 +484,87 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
         ],
       ),
     );
+  }
+
+  /// Pemetaan manual dipakai saat baris judul tidak bisa dibaca, misalnya
+  /// tabel tanpa judul yang kolomnya hanya bernama "Kolom 1", "Kolom 2".
+  Widget _mappingControls(CsvTable table) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Pemetaan kolom',
+          style: AppText.style(size: 13.5, weight: 600, color: AppTheme.ink),
+        ),
+        const SizedBox(height: AppTheme.spaceXs),
+        Text(
+          'Pilih kolom yang berisi nama barang. Kolom stok boleh dikosongkan '
+          'kalau jumlahnya diisi manual.',
+          style: AppText.bodySm.copyWith(color: AppTheme.muted),
+        ),
+        const SizedBox(height: AppTheme.spaceSm),
+        _dropdown<int?>(
+          label: 'Kolom nama barang *',
+          value: _nameColumn,
+          items: [
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text('Pilih kolom'),
+            ),
+            for (var i = 0; i < table.header.length; i++)
+              DropdownMenuItem<int?>(
+                value: i,
+                child: Text(
+                  _columnHint(table, i),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (value) => setState(() {
+            _nameColumn = value;
+            _replan();
+          }),
+        ),
+        _dropdown<int?>(
+          label: 'Kolom stok (opsional)',
+          value: _stockColumn,
+          items: [
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text('Otomatis dari judul'),
+            ),
+            for (var i = 0; i < table.header.length; i++)
+              DropdownMenuItem<int?>(
+                value: i,
+                child: Text(
+                  _columnHint(table, i),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (value) => setState(() {
+            _stockColumn = value;
+            _replan();
+          }),
+        ),
+      ],
+    );
+  }
+
+  /// Label kolom beserta contoh isinya, supaya "Kolom 3" bisa dikenali.
+  String _columnHint(CsvTable table, int index) {
+    final header = table.header[index];
+    if (table.rows.isEmpty || index >= table.rows.first.length) {
+      return header;
+    }
+    final sample = table.rows.first[index].trim();
+    if (sample.isEmpty) {
+      return header;
+    }
+    final shown = sample.length > 24 ? '${sample.substring(0, 24)}…' : sample;
+    return '$header — $shown';
   }
 
   /// Semua hal teknis ada di sini, jauh dari jalur impor normal.
@@ -623,7 +776,7 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
   /// Menampilkan kolom berkas mana yang dikenali, supaya admin bisa memastikan
   /// baris judulnya sudah benar.
   Widget _detectedSection(CsvTable table) {
-    final plan = _planFor(table);
+    final plan = _plan;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -660,16 +813,19 @@ class _ItemImportScreenState extends State<ItemImportScreen> {
     );
   }
 
-  Widget _stockPerRowField() => TextField(
+  Widget _stockPerRowField({bool showError = false}) => TextField(
         controller: _stockPerRow,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Stok tiap barang',
           helperText:
               'File tidak punya kolom stok. Isi 1 kalau tiap barang satu unit.',
+          errorText: showError && _stockPerRowValue == null
+              ? 'Isi jumlah stok, misalnya 1.'
+              : null,
         ),
-        onChanged: (_) => setState(() {}),
+        onChanged: (_) => setState(() => _replan()),
       );
 
   Widget _preview(CsvTable table) {

@@ -124,6 +124,8 @@ class LoanRepository {
     final borrower = requireText(loan.borrowerName, field: 'Nama peminjam');
     final quantity = requirePositiveInt(loan.quantity, field: 'Jumlah pinjam');
     _requireDueNotBeforeLoan(loan.loanDate, loan.dueDate);
+    _requireSupportedDate(loan.loanDate, 'Tanggal pinjam');
+    _requireSupportedDate(loan.dueDate, 'Tanggal kembali rencana');
 
     final db = await _helper.database;
     return db.transaction((txn) async {
@@ -160,6 +162,8 @@ class LoanRepository {
     final borrower = requireText(loan.borrowerName, field: 'Nama peminjam');
     final quantity = requirePositiveInt(loan.quantity, field: 'Jumlah pinjam');
     _requireDueNotBeforeLoan(loan.loanDate, loan.dueDate);
+    _requireSupportedDate(loan.loanDate, 'Tanggal pinjam');
+    _requireSupportedDate(loan.dueDate, 'Tanggal kembali rencana');
 
     final db = await _helper.database;
     await db.transaction((txn) async {
@@ -176,6 +180,15 @@ class LoanRepository {
         if (loan.itemId != existing.itemId || quantity != existing.quantity) {
           throw const ValidationException(
             'Peminjaman selesai tidak bisa diganti barang atau jumlahnya.',
+          );
+        }
+        // The return date is frozen with the rest of the finished history, so
+        // the loan may not be moved to after it: that would record the item
+        // coming back before it went out.
+        final returnDate = existing.returnDate;
+        if (returnDate != null && isBeforeDay(returnDate, loan.loanDate)) {
+          throw const ValidationException(
+            'Tanggal pinjam tidak boleh setelah tanggal kembali.',
           );
         }
         await txn.update(_table, shared, where: 'id = ?', whereArgs: [id]);
@@ -220,7 +233,15 @@ class LoanRepository {
   }
 
   /// FR-L9: marks the loan done and returns its units to the item.
-  Future<void> markReturned({required int loanId, required DateTime returnDate}) async {
+  ///
+  /// [today] can be pinned by a test. A return in the future is refused: the
+  /// item cannot be back before the day it is actually handed over.
+  Future<void> markReturned({
+    required int loanId,
+    required DateTime returnDate,
+    DateTime? today,
+  }) async {
+    _requireSupportedDate(returnDate, 'Tanggal kembali');
     final db = await _helper.database;
     await db.transaction((txn) async {
       final loan = await _loadLoan(txn, loanId);
@@ -230,6 +251,11 @@ class LoanRepository {
       if (isBeforeDay(returnDate, loan.loanDate)) {
         throw const ValidationException(
           'Tanggal kembali tidak boleh sebelum tanggal pinjam.',
+        );
+      }
+      if (isBeforeDay(today ?? DateTime.now(), returnDate)) {
+        throw const ValidationException(
+          'Tanggal kembali tidak boleh melebihi hari ini.',
         );
       }
       await txn.update(
@@ -268,6 +294,14 @@ class LoanRepository {
       throw const ValidationException(
         'Tanggal kembali rencana tidak boleh sebelum tanggal pinjam.',
       );
+    }
+  }
+
+  /// The pickers only offer 2000-2100, and the repository enforces the same
+  /// range so a date from another path cannot break the text comparison.
+  void _requireSupportedDate(DateTime date, String field) {
+    if (date.year < 2000 || date.year > 2100) {
+      throw ValidationException('$field harus di antara tahun 2000 dan 2100.');
     }
   }
 

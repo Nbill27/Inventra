@@ -21,10 +21,16 @@ String? optionalText(String? value) {
 /// Batas panjang kontak, dipakai layar dan repository supaya sama.
 const int contactMaxLength = 30;
 
-/// Karakter yang masuk akal untuk "nomor HP atau bagian": huruf, angka, spasi,
-/// dan tanda pemisah nomor. Sisanya ditolak supaya kolom ini tidak diisi
-/// sembarangan.
-final RegExp _contactAllowed = RegExp(r'^[A-Za-z0-9 +()./\-]+$');
+/// Karakter yang masuk akal untuk "nomor HP atau email": huruf, angka, spasi,
+/// dan tanda pemisah nomor, ditambah `@`, `_`, dan `.` supaya alamat email ikut
+/// diterima. Sisanya ditolak supaya kolom ini tidak diisi sembarangan.
+final RegExp _contactAllowed = RegExp(r'^[A-Za-z0-9 +()@._/\-]+$');
+
+/// Bentuk email yang longgar: ada isi, satu `@`, lalu domain bertitik.
+///
+/// Sengaja tidak seketat RFC: yang penting salah ketik seperti tanpa `@` atau
+/// tanpa domain ketahuan sebelum disimpan.
+final RegExp _contactEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
 /// Kenapa kontak belum bisa diterima, atau null kalau isinya sudah oke.
 ///
@@ -39,13 +45,18 @@ String? contactProblem(String? value) {
     return 'Kontak maksimal $contactMaxLength karakter.';
   }
   if (!_contactAllowed.hasMatch(text)) {
-    return 'Kontak hanya boleh huruf, angka, spasi, dan tanda + - ( ) . /';
+    return 'Kontak hanya boleh huruf, angka, spasi, dan tanda + - ( ) . / @ _';
+  }
+  // `@` hanya masuk akal sebagai email, jadi bentuknya diperiksa; nomor
+  // telepon tidak punya tanda itu.
+  if (text.contains('@') && !_contactEmail.hasMatch(text)) {
+    return 'Kontak berupa email harus berformat nama@domain.';
   }
   return null;
 }
 
 /// Optional contact: blank stays null, and a filled value must look like a
-/// phone number or a class name.
+/// phone number or an email address.
 ///
 /// Panjang minimum hanya ditegakkan di layar, bukan di sini, supaya data lama
 /// yang pendek masih bisa disunting.

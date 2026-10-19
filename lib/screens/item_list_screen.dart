@@ -151,7 +151,7 @@ class _ItemListScreenState extends State<ItemListScreen> {
                 AppTheme.spaceSm,
               ),
               child: SizedBox(
-                height: 38,
+                height: AppTheme.touch,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: _filters(context, provider),

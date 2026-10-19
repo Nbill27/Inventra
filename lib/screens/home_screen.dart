@@ -33,7 +33,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _search = TextEditingController();
 
   /// Filter dan pencarian disimpan di layar ini, bukan di provider, supaya
@@ -44,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Beranda adalah tab pertama, jadi ia memuat sendiri datanya: perpindahan
     // tab yang memicu muat ulang tidak terjadi saat aplikasi baru dibuka.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,8 +56,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _search.dispose();
     super.dispose();
+  }
+
+  /// Saat aplikasi dilanjutkan, hari bisa sudah berganti sementara aplikasi
+  /// tidur. Ringkasan dan kategori "Terlambat" dihitung saat memuat, jadi
+  /// keduanya perlu dihitung ulang agar tidak menampilkan angka kemarin.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) {
+      return;
+    }
+    final provider = context.read<LoanProvider>();
+    if (provider.isStale) {
+      provider.load();
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -81,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<LoanProvider>();
-    final loans = _visible(provider.loans);
+    final loans = _visible(provider.loans, provider.today);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -129,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   AppTheme.spaceSm,
                 ),
                 child: SizedBox(
-                  height: 38,
+                  height: AppTheme.touch,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: _filters(),
@@ -154,8 +170,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Daftar yang lolos filter status dan kata kunci, disaring di memori.
-  List<LoanDetail> _visible(List<LoanDetail> all) {
-    final today = DateTime.now();
+  ///
+  /// [today] datang dari provider, bukan `DateTime.now()`, supaya filter
+  /// "Terlambat" di sini sejalan dengan ringkasan yang dihitung repository.
+  List<LoanDetail> _visible(List<LoanDetail> all, DateTime today) {
     return all
         .where(
           (detail) =>
@@ -250,6 +268,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return RefreshIndicator(
       onRefresh: () => context.read<LoanProvider>().load(),
       child: ListView.separated(
+        // Daftar pendek tetap bisa ditarik untuk muat ulang; tanpa ini
+        // RefreshIndicator tidak pernah aktif saat isinya hanya beberapa baris.
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
           AppTheme.spaceMd,
           0,

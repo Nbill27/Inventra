@@ -160,8 +160,8 @@ class AppTheme {
   static const double spaceLg = 24;
   static const double spaceXl = 36;
 
-  /// Target sentuh minimum.
-  static const double touch = 44;
+  /// Target sentuh minimum: 48 dp, patokan area sentuh Material.
+  static const double touch = 48;
 
   /// Ruang bawah untuk bar aksi yang mengambang atau FAB.
   static const double spaceBottomBar = 88;
