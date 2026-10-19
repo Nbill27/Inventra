@@ -1,6 +1,23 @@
 # Salin jadi android/key.properties lalu isi dengan kunci rilis Anda.
 # Berkas key.properties tidak di-commit (lihat .gitignore).
+#
+# Kunci rilis dibuat sekali saja. Kunci ini permanen: aplikasi yang sudah terbit
+# di Google Play hanya bisa diperbarui dengan kunci yang sama.
+#
+#   keytool -genkeypair -keystore D:/keys/inventra-release.jks -storetype PKCS12
+#     -alias inventra -keyalg RSA -keysize 2048 -validity 10000
+#     -dname "CN=Inventra, OU=Inventra, O=Inventra, L=Jakarta, ST=DKI Jakarta, C=ID"
+#
+# Catatan:
+# - -validity wajib panjang. Bawaan keytool hanya 90 hari, sedangkan Google
+#   mensyaratkan kunci masih berlaku setelah Oktober 2033.
+# - Keystore PKCS12 memakai satu sandi: storePassword dan keyPassword harus sama.
+# - Simpan berkas .jks di luar repo, lalu cadangkan berkas beserta sandinya di
+#   dua tempat. Kehilangan keduanya berarti aplikasi tidak bisa di-update lagi.
+
 storePassword=ubah-ini
 keyPassword=ubah-ini
 keyAlias=ubah-ini
-storeFile=<path ke berkas .jks>
+# Pakai garis miring, bukan garis miring terbalik: Java Properties membaca '\'
+# sebagai karakter escape, sehingga 'D:\keys\x.jks' menjadi 'D:keysx.jks'.
+storeFile=D:/keys/inventra-release.jks
