@@ -1,25 +1,62 @@
+import 'dart:convert' show jsonDecode;
+
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+/// Returns the rows to fill the items table with on a fresh install, or an
+/// empty list for none. Tests inject an empty loader so they never touch the
+/// asset bundle.
+typedef SeedLoader = Future<List<Map<String, Object?>>> Function();
+
+/// Reads the bundled seed file: the master "Daftar Alat Ukur" list that the
+/// app ships with, so a new install already holds the inventory. Every item
+/// starts with one unit in stock; the admin adjusts through the item form.
+Future<List<Map<String, Object?>>> loadSeedFromAssets() async {
+  final text = await rootBundle.loadString('assets/seed/items.json');
+  final decoded = jsonDecode(text) as List<dynamic>;
+  return [
+    for (final row in decoded)
+      {
+        'no_urut': row['no_urut'] as String?,
+        'name': row['name'] as String,
+        'code': row['code'] as String?,
+        'range_text': row['range'] as String?,
+        'brand': row['brand'] as String?,
+        'pic': row['pic'] as String?,
+        'status': row['status'] as String?,
+        'stock_total': 1,
+        'stock_available': 1,
+      },
+  ];
+}
+
 /// Owns the single SQLite connection. Tests inject an in-memory [factory] and [path].
 class DatabaseHelper {
-  DatabaseHelper({DatabaseFactory? factory, String? path})
+  DatabaseHelper({DatabaseFactory? factory, String? path, SeedLoader? seedLoader})
       : _factory = factory ?? databaseFactory,
         // `this._path` would make the named parameter private, so callers could
         // not pass `path:` from another library.
         // ignore: prefer_initializing_formals
-        _path = path;
+        _path = path,
+        _seedLoader = seedLoader ?? loadSeedFromAssets;
 
   static final DatabaseHelper instance = DatabaseHelper();
 
   static const fileName = 'peminjaman_barang.db';
 
   /// v2 replaced the generic `category`/`note` columns with the columns of the
-  /// master "Daftar Alat Ukur" file.
-  static const schemaVersion = 2;
+  /// master "Daftar Alat Ukur" file. v3 added `app_settings` for the backup
+  /// switch and the last-backup timestamp.
+  static const schemaVersion = 3;
 
   final DatabaseFactory _factory;
   final String? _path;
+  final SeedLoader _seedLoader;
+
+  /// Full path of the database file, for the backup copy.
+  Future<String> databasePath() async =>
+      _path ?? p.join(await _factory.getDatabasesPath(), fileName);
 
   Database? _db;
 
@@ -73,6 +110,24 @@ class DatabaseHelper {
 
     await db.execute('CREATE INDEX idx_loans_item ON loans (item_id)');
     await db.execute('CREATE INDEX idx_loans_status ON loans (status)');
+
+    await db.execute('''
+      CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+
+    await _seedItems(db);
+  }
+
+  /// A fresh install starts with the bundled inventory. Only [onCreate] calls
+  /// this, so an upgraded or re-seeded database is never overwritten.
+  Future<void> _seedItems(Database db) async {
+    final rows = await _seedLoader();
+    for (final row in rows) {
+      await db.insert('items', row);
+    }
   }
 
   /// v1 is the initial schema. Add one ordered step per new version.
@@ -86,6 +141,14 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE items ADD COLUMN brand TEXT');
       await db.execute('ALTER TABLE items ADD COLUMN pic TEXT');
       await db.execute('ALTER TABLE items ADD COLUMN status TEXT');
+    }
+    if (from < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
     }
   }
 

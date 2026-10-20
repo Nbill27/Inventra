@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:peminjaman_barang/core/exceptions.dart';
 import 'package:peminjaman_barang/db/database_helper.dart';
 import 'package:peminjaman_barang/models/item_filter.dart';
@@ -19,6 +20,37 @@ void main() {
   });
 
   tearDown(() => helper.close());
+
+  test('a fresh database is filled by the injected seed', () async {
+    // createTestDatabase injects an empty seed; a non-empty one plays the role
+    // of the bundled asset and must land in the items table on creation.
+    final seededHelper = DatabaseHelper(
+      factory: databaseFactoryFfi,
+      path: ':memory:',
+      seedLoader: () async => [
+        {
+          'no_urut': '1',
+          'name': 'Digital Caliper',
+          'code': 'RAB/01/01',
+          'range_text': '300 mm',
+          'brand': 'Mitutoyo',
+          'pic': 'QC',
+          'status': 'OK',
+          'stock_total': 1,
+          'stock_available': 1,
+        },
+      ],
+    );
+    addTearDown(seededHelper.close);
+
+    final seededItems = ItemRepository(helper: seededHelper);
+    final list = await seededItems.getAll();
+
+    expect(list, hasLength(1));
+    expect(list.single.name, 'Digital Caliper');
+    expect(list.single.stockTotal, 1);
+    expect(list.single.stockAvailable, 1);
+  });
 
   test('T1: a new item starts fully available', () async {
     final id = await items.create(itemFixture());

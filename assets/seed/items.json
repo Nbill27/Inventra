@@ -1,0 +1,353 @@
+[
+ {
+  "no_urut": "1",
+  "name": "Digital Caliper",
+  "code": "RAB/01/01",
+  "range": "300 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "2",
+  "name": "Digital Caliper",
+  "code": "RAB/01/02",
+  "range": "301 mm",
+  "brand": "Mitutoyo",
+  "pic": "MTC",
+  "status": "Not Good / Rusak"
+ },
+ {
+  "no_urut": "3",
+  "name": "Digital Caliper",
+  "code": "RAB/01/03",
+  "range": "302 mm",
+  "brand": "Mitutoyo",
+  "pic": "ENG",
+  "status": "OK"
+ },
+ {
+  "no_urut": "4",
+  "name": "Digital Caliper",
+  "code": "RAB/01/04",
+  "range": "150 mm",
+  "brand": "Insize",
+  "pic": "Assy tank",
+  "status": "OK"
+ },
+ {
+  "no_urut": "5",
+  "name": "Digital Caliper",
+  "code": "RAB/01/05",
+  "range": "150 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "6",
+  "name": "Digital Caliper",
+  "code": "RAB/01/06",
+  "range": "300 mm",
+  "brand": "Mitutoyo",
+  "pic": "CNC Milling",
+  "status": "OK"
+ },
+ {
+  "no_urut": "7",
+  "name": "Digital Caliper",
+  "code": "RAB/01/07",
+  "range": "150 mm",
+  "brand": "Mitutoyo",
+  "pic": "ENG",
+  "status": "OK"
+ },
+ {
+  "no_urut": "8",
+  "name": "Bevel Protector (121432)",
+  "code": "RAB/02/001",
+  "range": "180O",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "9",
+  "name": "Bevel Protector (154574)",
+  "code": "RAB/02/002",
+  "range": "180O",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "10",
+  "name": "Digital Height Gauge (14107224)",
+  "code": "RAB/03/001",
+  "range": "600 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "11",
+  "name": "Digital Height Gauge (HD-60AX)",
+  "code": "RAB/03/002",
+  "range": "600 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "12",
+  "name": "Dial indicator VPB572",
+  "code": "RAB/04/001",
+  "range": "0.8 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "13",
+  "name": "Dial indicator PWP553",
+  "code": "RAB/04/002",
+  "range": "0.8 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "14",
+  "name": "Radius Gauge",
+  "code": "RAB/05/001",
+  "range": ".",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "15",
+  "name": "Tapper gauge",
+  "code": "RAB/06/001",
+  "range": "150 mm",
+  "brand": "No brand",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "16",
+  "name": "Tapper gauge",
+  "code": "RAB/06/002",
+  "range": "150 mm",
+  "brand": "No brand",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "17",
+  "name": "Steel Ruler",
+  "code": "RAB/07/001",
+  "range": "150 mm",
+  "brand": "No brand",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "18",
+  "name": "Steel Ruler",
+  "code": "RAB/07/002",
+  "range": "150 mm",
+  "brand": "No brand",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "19",
+  "name": "Dial Gauge (KXQ684)",
+  "code": "RAB/08/001",
+  "range": "1 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "20",
+  "name": "Dial Gauge (ASRJ71)",
+  "code": "RAB/08/002",
+  "range": "0.01 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "21",
+  "name": "Durometer",
+  "code": "RAB/09/001",
+  "range": "0 - 100",
+  "brand": "Teclock",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "22",
+  "name": "Torque wrench F92N",
+  "code": "RAB/10/001",
+  "range": "92 N-m",
+  "brand": "Tohnichi",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "23",
+  "name": "Torque Wrench (146703E)",
+  "code": "RAB10/002",
+  "range": "200 N-m",
+  "brand": "Tohnichi",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "24",
+  "name": "Torque Wrench (086181k)",
+  "code": "RAB/10/003",
+  "range": "200 N-m",
+  "brand": "Tohnichi",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "25",
+  "name": "Torque Wrench (ACD200)",
+  "code": "RAB/10/004",
+  "range": "200 N-m",
+  "brand": "Wipro",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "26",
+  "name": "Digital thickness Gauge (MT031121611)",
+  "code": "RAB/11/001",
+  "range": "0 - 12 mm",
+  "brand": "Mi-tech",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "27",
+  "name": "Digital thickness Gauge (MT0623032208)",
+  "code": "RAB/11/002",
+  "range": "0 - 12 mm",
+  "brand": "Mi-tech",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "28",
+  "name": "Digital thickness gauge",
+  "code": "RAB/12/001",
+  "range": "13 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "29",
+  "name": "Radius Gauge",
+  "code": "RAB/13/001",
+  "range": "0.5 - 13 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "30",
+  "name": "Gauge Block set (516-101-10)",
+  "code": "RAB/14/001",
+  "range": "-",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "31",
+  "name": "Force Gauge (NK-10)",
+  "code": "RAB/15/001",
+  "range": "10 N",
+  "brand": "No brand",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "32",
+  "name": "Faro Quantum Max E",
+  "code": "RAB/16/001",
+  "range": "-",
+  "brand": "FARO",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "33",
+  "name": "Coating Thickness Gauge (UT343D)",
+  "code": "RAB/18/001",
+  "range": "0 - 1.250 µm",
+  "brand": "Uni-T",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "34",
+  "name": "Digital Micro Meter (71624659)",
+  "code": "RAB/17/001",
+  "range": "0-25 mm",
+  "brand": "Mitutoyo",
+  "pic": "WHS",
+  "status": "OK"
+ },
+ {
+  "no_urut": "35",
+  "name": "Digital Micro Meter (72631309)",
+  "code": "RAB/17/002",
+  "range": "0-25 mm",
+  "brand": "Mitutoyo",
+  "pic": "QC",
+  "status": "OK"
+ },
+ {
+  "no_urut": "36",
+  "name": "Digital Micro Meter (72467902)",
+  "code": "RAB/17/003",
+  "range": "0-25 mm",
+  "brand": "Mitutoyo",
+  "pic": "Prod Shearing",
+  "status": "OK"
+ },
+ {
+  "no_urut": "37",
+  "name": "Digital Micro Meter (71564704)",
+  "code": "RAB/17/004",
+  "range": "0-25 mm",
+  "brand": "Mitutoyo",
+  "pic": "Prod Leser",
+  "status": "OK"
+ },
+ {
+  "no_urut": "38",
+  "name": "Digital Micro Meter (715564699)",
+  "code": "RAB/17/005",
+  "range": "0-25 mm",
+  "brand": "Mitutoyo",
+  "pic": "WHS",
+  "status": "OK"
+ },
+ {
+  "no_urut": "39",
+  "name": "Digital Lux Meter (GM1030C)",
+  "code": "RAB/19/001",
+  "range": "-",
+  "brand": "Sanfix",
+  "pic": "QC",
+  "status": "OK"
+ }
+]

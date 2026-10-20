@@ -7,7 +7,12 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 /// host without a device.
 DatabaseHelper createTestDatabase() {
   sqfliteFfiInit();
-  return DatabaseHelper(factory: databaseFactoryFfi, path: ':memory:');
+  // Seed kosong: test menyusun isinya sendiri, bukan dari asset bundle.
+  return DatabaseHelper(
+    factory: databaseFactoryFfi,
+    path: ':memory:',
+    seedLoader: () async => [],
+  );
 }
 
 Item itemFixture({

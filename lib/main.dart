@@ -6,6 +6,7 @@ import 'core/app_theme.dart';
 import 'core/formatters.dart';
 import 'providers/item_provider.dart';
 import 'providers/loan_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/home_shell.dart';
 import 'widgets/app_background.dart';
 
@@ -34,7 +35,11 @@ class PeminjamanBarangApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ItemProvider()..load()),
-        ChangeNotifierProvider(create: (_) => LoanProvider()..load()),
+        // Beranda memuat peminjaman sendiri saat pertama tampil; memuat di sini
+        // juga hanya menggandakan query yang sama.
+        ChangeNotifierProvider(create: (_) => LoanProvider()),
+        // Pengaturan backup dibaca dari database saat layar pertama butuh.
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: MaterialApp(
         title: 'Inventra',

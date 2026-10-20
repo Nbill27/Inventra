@@ -1,0 +1,172 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../core/app_theme.dart';
+import '../core/app_text.dart';
+import '../core/formatters.dart';
+import '../providers/settings_provider.dart';
+import '../widgets/app_background.dart';
+import '../widgets/content_width.dart';
+import '../widgets/panel.dart';
+
+/// Pengaturan app: satu panel backup otomatis bulanan dengan saklarnya,
+/// tombol backup manual, dan keterangan kapan backup terakhir dijalankan.
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<SettingsProvider>().load();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pengaturan'),
+        flexibleSpace: appBarScrim(),
+      ),
+      body: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(AppTheme.spaceMd),
+          children: [
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.backup_outlined,
+                        size: 20,
+                        color: AppTheme.primary,
+                      ),
+                      const SizedBox(width: AppTheme.spaceSm),
+                      Expanded(
+                        child: Text(
+                          'Backup otomatis bulanan',
+                          style: AppText.style(
+                            size: 15,
+                            weight: 600,
+                            color: AppTheme.ink,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: settings.autoBackup,
+                        onChanged: settings.isBusy
+                            ? null
+                            : (value) => _toggleAuto(value),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.spaceXs),
+                  Text(
+                    'Bila nyala, salinan data dibuat otomatis sebulan sekali '
+                    'saat app dibuka. Bila mati, backup hanya lewat tombol di '
+                    'bawah.',
+                    style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: AppTheme.spaceMd),
+                  FilledButton.icon(
+                    onPressed: settings.isBusy ? null : _backupNow,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.deep,
+                    ),
+                    icon: settings.isBusy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.onPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.save_outlined, size: 20),
+                    label: Text(
+                      settings.isBusy ? 'Menyalin data…' : 'Backup sekarang',
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spaceSm),
+                  Text(
+                    _lastBackupText(settings),
+                    style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                  ),
+                  if (settings.lastBackupPath != null) ...[
+                    const SizedBox(height: AppTheme.spaceXs),
+                    Text(
+                      'Berkas: ${settings.lastBackupPath}',
+                      style: AppText.style(
+                        size: 11.5,
+                        color: AppTheme.muted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.spaceSm),
+              child: Text(
+                'Berkas backup berisi seluruh data app: daftar barang, stok, '
+                'dan riwayat peminjaman.',
+                style: AppText.style(size: 12, color: AppTheme.muted),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _lastBackupText(SettingsProvider settings) {
+    final last = settings.lastBackupAt;
+    if (last == null) {
+      return 'Belum pernah backup.';
+    }
+    final next = last.add(SettingsProvider.monthlyInterval);
+    return 'Backup terakhir: ${formatLongDate(last)}, '
+        '${DateFormat('HH:mm').format(last)}. '
+        'Backup berikutnya: sekitar ${formatLongDate(next)}.';
+  }
+
+  Future<void> _toggleAuto(bool value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await context.read<SettingsProvider>().setAutoBackup(value);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          error ??
+              (value
+                  ? 'Backup otomatis bulanan dinyalakan.'
+                  : 'Backup otomatis dimatikan.'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _backupNow() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final error = await context.read<SettingsProvider>().backupNow();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Backup selesai. Berkas tersimpan di folder '
+            'backup app.'),
+      ),
+    );
+  }
+}

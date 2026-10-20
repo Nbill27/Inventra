@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/item_provider.dart';
 import '../providers/loan_provider.dart';
+import '../providers/settings_provider.dart';
 import 'home_screen.dart';
 import 'item_list_screen.dart';
 import 'loan_list_screen.dart';
@@ -28,6 +29,18 @@ class _HomeShellState extends State<HomeShell> {
   static const _riwayat = 2;
 
   late int _index = widget.initialTab;
+
+  @override
+  void initState() {
+    super.initState();
+    // Backup otomatis dicek sekali saat app dibuka: hanya berjalan bila
+    // saklarnya nyala dan backup terakhir sudah lebih tua dari sebulan.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<SettingsProvider>().maybeRunMonthlyBackup();
+      }
+    });
+  }
 
   /// Memuat ulang tab yang dibuka. Tanpa ini, ringkasan di beranda masih
   /// menampilkan angka lama setelah peminjaman dicatat di tab sebelah.

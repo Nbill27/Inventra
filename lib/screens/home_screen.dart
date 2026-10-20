@@ -8,6 +8,7 @@ import '../models/loan_detail.dart';
 import '../models/loan_filter.dart';
 import '../models/loan_stats.dart';
 import '../providers/loan_provider.dart';
+import 'settings_screen.dart';
 import '../widgets/app_chrome.dart';
 import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
@@ -111,6 +112,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: ContentWidth(
           child: Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.spaceMd,
+                  AppTheme.spaceSm,
+                  AppTheme.spaceMd,
+                  0,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      'Inventra',
+                      style: AppText.style(
+                        size: 20,
+                        weight: 700,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                    const Spacer(),
+                    RoundIconButton(
+                      tooltip: 'Pengaturan',
+                      icon: Icons.settings_outlined,
+                      onTap: () => _openScreen(const SettingsScreen()),
+                    ),
+                  ],
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppTheme.spaceMd,
