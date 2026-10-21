@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/item_provider.dart';
 import '../providers/loan_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/reminder_scheduler.dart';
 import 'home_screen.dart';
 import 'item_list_screen.dart';
 import 'loan_list_screen.dart';
@@ -23,23 +24,52 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   static const _beranda = 0;
   static const _barang = 1;
   static const _riwayat = 2;
 
   late int _index = widget.initialTab;
+  ReminderScheduler? _reminders;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _reminders = context.read<ReminderScheduler>()
+      ..taps.addListener(_bukaDariNotifikasi);
     // Backup otomatis dicek sekali saat app dibuka: hanya berjalan bila
     // saklarnya nyala dan backup terakhir sudah lebih tua dari sebulan.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<SettingsProvider>().maybeRunMonthlyBackup();
+        // Jadwal pengingat diperpanjang setiap app dibuka, sehingga horizon
+        // 90 hari tidak pernah benar-benar habis dalam pemakaian normal.
+        _reminders?.sync();
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _reminders?.sync();
+    }
+  }
+
+  @override
+  void dispose() {
+    _reminders?.taps.removeListener(_bukaDariNotifikasi);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Ketukan pada notifikasi pengingat selalu berakhir di daftar peminjaman.
+  void _bukaDariNotifikasi() {
+    if (!mounted) {
+      return;
+    }
+    _kembaliKeBeranda();
   }
 
   /// Memuat ulang tab yang dibuka. Tanpa ini, ringkasan di beranda masih

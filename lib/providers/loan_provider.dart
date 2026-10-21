@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/dates.dart';
@@ -6,13 +8,20 @@ import '../models/loan.dart';
 import '../models/loan_detail.dart';
 import '../models/loan_stats.dart';
 import '../repositories/loan_repository.dart';
+import '../services/reminder_scheduler.dart';
 
 class LoanProvider extends ChangeNotifier {
-  LoanProvider({LoanRepository? repository, DateTime Function()? clock})
-      : _repository = repository ?? LoanRepository(),
+  LoanProvider({
+    LoanRepository? repository,
+    DateTime Function()? clock,
+    this.reminderSync,
+  })  : _repository = repository ?? LoanRepository(),
         _clock = clock ?? DateTime.now;
 
   final LoanRepository _repository;
+
+  /// Penyusun ulang jadwal pengingat. Null di test yang tidak menguji notifikasi.
+  final ReminderSync? reminderSync;
 
   /// Sumber "hari ini". Bisa diganti di test supaya pergantian hari tidak
   /// perlu menunggu tengah malam sungguhan.
@@ -104,6 +113,9 @@ class LoanProvider extends ChangeNotifier {
       return 'Gagal menyimpan data peminjaman.';
     }
     await load();
+    // Dijalankan tanpa ditunggu: pengingat tidak boleh memperlambat tombol
+    // "Dikembalikan". Kegagalannya sudah ditangani di dalam scheduler.
+    unawaited(reminderSync?.sync() ?? Future<void>.value());
     return null;
   }
 }

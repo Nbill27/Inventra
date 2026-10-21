@@ -12,6 +12,8 @@ import '../models/item.dart';
 import '../models/loan.dart';
 import '../providers/item_provider.dart';
 import '../providers/loan_provider.dart';
+import '../providers/settings_provider.dart';
+import '../services/notification_gateway.dart';
 import '../widgets/app_background.dart';
 import '../widgets/content_width.dart';
 import '../widgets/empty_state.dart';
@@ -587,6 +589,15 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
       messenger.showSnackBar(SnackBar(content: Text(error)));
       return;
     }
+    // Tawaran izin notifikasi muncul tepat setelah pinjaman pertama tercatat:
+    // di titik itu pengingat sudah masuk akal, dan pengguna belum terganggu
+    // dialog apa pun sebelumnya.
+    if (existing == null) {
+      await _maybeOfferReminders();
+      if (!mounted) {
+        return;
+      }
+    }
     // `true` menandai simpan berhasil, supaya layar pemanggil bisa membedakan
     // "berhasil" dari "dibatalkan" dan tidak ikut menutup saat dibatalkan.
     navigator.pop(true);
@@ -597,5 +608,48 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
         ),
       ),
     );
+  }
+
+  /// Menawarkan pengingat sekali saja, lalu mencatat pilihannya.
+  Future<void> _maybeOfferReminders() async {
+    final settings = context.read<SettingsProvider>();
+    final gateway = context.read<NotificationGateway>();
+    // Pengaturan dibaca ulang dari database: layar ini bisa jadi yang pertama
+    // menyentuhnya, dan tanpa ini tawaran yang sama muncul lagi setiap app
+    // dibuka ulang.
+    await settings.load();
+    if (!mounted || settings.notificationsPrompted) {
+      return;
+    }
+
+    final aktifkan = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Ingatkan pengembalian?'),
+        content: const Text(
+          'Aplikasi bisa mengingatkan pukul 09.00, 13.00, dan 15.00 setiap '
+          'hari sampai barang ditandai dikembalikan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Tidak sekarang'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Aktifkan'),
+          ),
+        ],
+      ),
+    );
+
+    await settings.markNotificationsPrompted();
+    if (aktifkan == true) {
+      await gateway.requestPermission();
+    } else if (aktifkan == false) {
+      // "Tidak sekarang" berarti pengingat memang tidak diinginkan; saklarnya
+      // di Pengaturan tetap bisa dinyalakan lagi kapan saja.
+      await settings.setNotificationsEnabled(false);
+    }
   }
 }

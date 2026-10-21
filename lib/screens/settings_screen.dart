@@ -6,12 +6,15 @@ import '../core/app_theme.dart';
 import '../core/app_text.dart';
 import '../core/formatters.dart';
 import '../providers/settings_provider.dart';
+import '../services/notification_gateway.dart';
+import '../services/reminder_scheduler.dart';
 import '../widgets/app_background.dart';
 import '../widgets/content_width.dart';
 import '../widgets/panel.dart';
 
-/// Pengaturan app: satu panel backup otomatis bulanan dengan saklarnya,
-/// tombol backup manual, dan keterangan kapan backup terakhir dijalankan.
+/// Pengaturan app: pengingat pengembalian, backup otomatis bulanan dengan
+/// saklarnya, tombol backup manual, dan keterangan kapan backup terakhir
+/// dijalankan.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -20,14 +23,24 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _permissionDenied = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<SettingsProvider>().load();
+        _refreshPermission();
       }
     });
+  }
+
+  Future<void> _refreshPermission() async {
+    final granted = await context.read<NotificationGateway>().hasPermission();
+    if (mounted) {
+      setState(() => _permissionDenied = !granted);
+    }
   }
 
   @override
@@ -43,6 +56,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppTheme.spaceMd),
           children: [
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications_active_outlined,
+                        size: 20,
+                        color: AppTheme.primary,
+                      ),
+                      const SizedBox(width: AppTheme.spaceSm),
+                      Expanded(
+                        child: Text(
+                          'Pengingat pengembalian',
+                          style: AppText.style(
+                            size: 15,
+                            weight: 600,
+                            color: AppTheme.ink,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: settings.notificationsEnabled,
+                        onChanged: _toggleReminders,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.spaceXs),
+                  Text(
+                    'Notifikasi dikirim pukul 09.00, 13.00, dan 15.00 setiap '
+                    'hari sampai barang ditandai dikembalikan.',
+                    style: AppText.bodySm.copyWith(color: AppTheme.muted),
+                  ),
+                  if (_permissionDenied) ...[
+                    const SizedBox(height: AppTheme.spaceSm),
+                    Text(
+                      'Izin notifikasi dimatikan di pengaturan Android, jadi '
+                      'pengingat tidak akan muncul.',
+                      style: AppText.bodySm.copyWith(
+                        color: AppTheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.spaceSm),
             Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -142,6 +203,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return 'Backup terakhir: ${formatLongDate(last)}, '
         '${DateFormat('HH:mm').format(last)}. '
         'Backup berikutnya: sekitar ${formatLongDate(next)}.';
+  }
+
+  Future<void> _toggleReminders(bool value) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final settings = context.read<SettingsProvider>();
+    final reminders = context.read<ReminderScheduler>();
+    final gateway = context.read<NotificationGateway>();
+
+    final error = await settings.setNotificationsEnabled(value);
+    if (value && error == null) {
+      final granted = await gateway.requestPermission();
+      if (mounted) {
+        setState(() => _permissionDenied = !granted);
+      }
+    }
+    // Menyalakan pengingat langsung memasang jadwal; mematikannya membatalkan
+    // semua alarm yang tersisa.
+    await reminders.sync(force: true);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          error ??
+              (value
+                  ? 'Pengingat pengembalian dinyalakan.'
+                  : 'Pengingat pengembalian dimatikan.'),
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleAuto(bool value) async {

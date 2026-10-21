@@ -8,6 +8,8 @@ import 'providers/item_provider.dart';
 import 'providers/loan_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_shell.dart';
+import 'services/notification_gateway.dart';
+import 'services/reminder_scheduler.dart';
 import 'widgets/app_background.dart';
 
 Future<void> main() async {
@@ -24,11 +26,31 @@ Future<void> main() async {
   // Nama bulan Indonesia harus dimuat sebelum tanggal pertama diformat,
   // kalau tidak `intl` melempar error di baris daftar pertama.
   await initFormatters();
-  runApp(const PeminjamanBarangApp());
+
+  final gateway = LocalNotificationGateway();
+  final reminders = ReminderScheduler(gateway: gateway);
+  try {
+    await reminders.initialize();
+  } catch (error, stackTrace) {
+    // Pengingat bersifat pelengkap: kegagalan menyiapkannya tidak boleh
+    // membuat aplikasi gagal dibuka.
+    debugPrint('Gagal menyiapkan notifikasi: $error\n$stackTrace');
+  }
+
+  runApp(
+    PeminjamanBarangApp(reminders: reminders, gateway: gateway),
+  );
 }
 
 class PeminjamanBarangApp extends StatelessWidget {
-  const PeminjamanBarangApp({super.key});
+  const PeminjamanBarangApp({
+    super.key,
+    required this.reminders,
+    required this.gateway,
+  });
+
+  final ReminderScheduler reminders;
+  final NotificationGateway gateway;
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +59,13 @@ class PeminjamanBarangApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ItemProvider()..load()),
         // Beranda memuat peminjaman sendiri saat pertama tampil; memuat di sini
         // juga hanya menggandakan query yang sama.
-        ChangeNotifierProvider(create: (_) => LoanProvider()),
+        ChangeNotifierProvider(
+          create: (_) => LoanProvider(reminderSync: reminders),
+        ),
         // Pengaturan backup dibaca dari database saat layar pertama butuh.
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        Provider<ReminderScheduler>.value(value: reminders),
+        Provider<NotificationGateway>.value(value: gateway),
       ],
       child: MaterialApp(
         title: 'Inventra',

@@ -3,9 +3,10 @@ import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 
 import '../db/database_helper.dart';
 import '../services/backup_service.dart';
+import '../services/reminder_scheduler.dart';
 
 /// Pengaturan app yang tersimpan di tabel `app_settings`: saklar backup
-/// otomatis dan waktu backup terakhir.
+/// otomatis, waktu backup terakhir, dan saklar pengingat pengembalian.
 class SettingsProvider extends ChangeNotifier {
   SettingsProvider({BackupService? backupService, DatabaseHelper? helper})
       : _backupService = backupService ?? BackupService(),
@@ -24,18 +25,27 @@ class SettingsProvider extends ChangeNotifier {
   DateTime? _lastBackupAt;
   bool _busy = false;
   String? _lastBackupPath;
+  bool _notificationsEnabled = true;
+  bool _notificationsPrompted = false;
 
   bool get autoBackup => _autoBackup;
   DateTime? get lastBackupAt => _lastBackupAt;
   bool get isBusy => _busy;
   String? get lastBackupPath => _lastBackupPath;
+  bool get notificationsEnabled => _notificationsEnabled;
+  bool get notificationsPrompted => _notificationsPrompted;
 
   Future<void> load() async {
     final db = await _helper.database;
     final rows = await db.query(
       'app_settings',
-      where: 'key IN (?, ?)',
-      whereArgs: [_keyAutoBackup, _keyLastBackup],
+      where: 'key IN (?, ?, ?, ?)',
+      whereArgs: [
+        _keyAutoBackup,
+        _keyLastBackup,
+        ReminderKeys.enabled,
+        ReminderKeys.prompted,
+      ],
     );
     for (final row in rows) {
       final value = row['value'] as String;
@@ -44,6 +54,10 @@ class SettingsProvider extends ChangeNotifier {
           _autoBackup = value == '1';
         case _keyLastBackup:
           _lastBackupAt = DateTime.tryParse(value)?.toLocal();
+        case ReminderKeys.enabled:
+          _notificationsEnabled = value == '1';
+        case ReminderKeys.prompted:
+          _notificationsPrompted = value == '1';
       }
     }
     notifyListeners();
@@ -68,6 +82,42 @@ class SettingsProvider extends ChangeNotifier {
       notifyListeners();
       return 'Gagal menyimpan pengaturan: $error';
     }
+  }
+
+  /// Menyalakan atau mematikan pengingat pengembalian. Kembaliannya: pesan
+  /// galat, atau null bila berhasil.
+  Future<String?> setNotificationsEnabled(bool enabled) async {
+    final previous = _notificationsEnabled;
+    _notificationsEnabled = enabled;
+    notifyListeners();
+    try {
+      await _writeSetting(ReminderKeys.enabled, enabled ? '1' : '0');
+      return null;
+    } catch (error) {
+      _notificationsEnabled = previous;
+      notifyListeners();
+      return 'Gagal menyimpan pengaturan: $error';
+    }
+  }
+
+  /// Menandai bahwa tawaran izin notifikasi sudah pernah muncul.
+  Future<void> markNotificationsPrompted() async {
+    _notificationsPrompted = true;
+    notifyListeners();
+    try {
+      await _writeSetting(ReminderKeys.prompted, '1');
+    } catch (error) {
+      debugPrint('Gagal menyimpan status tawaran notifikasi: $error');
+    }
+  }
+
+  Future<void> _writeSetting(String key, String value) async {
+    final db = await _helper.database;
+    await db.insert(
+      'app_settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Backup manual dari layar Pengaturan. Kembaliannya pesan galat, atau null
