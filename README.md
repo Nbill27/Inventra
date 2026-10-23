@@ -37,6 +37,18 @@ Status "Terlambat" dihitung saat tampil dari tanggal rencana kembali; di databas
 barisnya tetap `dipinjam`, sehingga label tidak bisa melenceng dari tanggalnya.
 Label seragam `Terlambat N hari`.
 
+### Pengaturan
+
+- **Pengingat pengembalian** — notifikasi pukul 09.00, 13.00, dan 15.00 WIB pada
+  dan setelah tanggal tenggat, sampai barang ditandai dikembalikan. Satu
+  notifikasi ringkasan per slot, bukan satu per transaksi.
+- Peringatan bila Android masih membatasi aplikasi di latar belakang, dengan
+  tombol menuju daftar pengecualian optimasi baterai.
+- **Backup otomatis bulanan** dengan saklarnya, plus tombol backup manual.
+  Salinan bisa dikeluarkan ke lokasi pilihan pengguna (Drive, Downloads, dan
+  seterusnya) dan dipulihkan kembali dari berkas `.db`.
+- Versi aplikasi yang sedang terpasang, dibaca dari paket Android.
+
 ## Menjalankan
 
 Butuh Flutter SDK (Dart `^3.12`). Sasaran proyek hanya Android.
@@ -76,15 +88,16 @@ lib/
   core/          tema, format tanggal/angka, validasi, pengecualian
   db/            koneksi SQLite dan migrasi skema
   models/        Item, Loan, filter, statistik, hasil impor
-  providers/     state ChangeNotifier untuk barang dan peminjaman
+  providers/     state ChangeNotifier untuk barang, peminjaman, dan pengaturan
   repositories/  query dan transaksi
-  services/      baca Excel/CSV, importer, parser CSV, ekspor riwayat
-  screens/       layar tiap tab, formulir, dan detail
+  services/      baca Excel/CSV, importer, ekspor riwayat, backup, dan pengingat
+  screens/       layar tiap tab, formulir, detail, dan pengaturan
   widgets/       komponen bersama (kartu, chip status, panel, dsb.)
-test/            tes unit, repository, impor, dan render layar
+test/            tes unit, repository, impor, backup, pengingat, dan render layar
 ```
 
-Basis data: `peminjaman_barang.db`, skema versi 2.
+Basis data: `peminjaman_barang.db`, skema versi 3 (versi 3 menambahkan
+`app_settings` untuk saklar backup dan pengingat).
 
 ## Validasi
 
@@ -105,9 +118,9 @@ flutter analyze
 flutter test
 ```
 
-Sebagian tes impor masih memakai pesan validasi versi lama, jadi hasil `flutter test`
-saat ini `90 lulus, 8 gagal` — semuanya di `test/item_import_test.dart` dan
-`test/item_import_screen_test.dart`. Yang gagal adalah harapan di dalam tes, bukan
+Sebagian tes impor masih memakai pesan validasi versi lama, jadi `flutter test`
+belum hijau seluruhnya: yang gagal adalah harapan di dalam
+`test/item_import_test.dart` dan `test/item_import_screen_test.dart`, bukan
 perilaku impor di aplikasi.
 
 ## Catatan teknis
@@ -117,3 +130,12 @@ perilaku impor di aplikasi.
   ini setelah upstream beres.
 - Font Poppins dibundel di `assets/fonts/` supaya tampilan sama tanpa unduhan saat
   runtime.
+- AGP 9 mengaktifkan resource shrinking di build rilis. Ikon notifikasi
+  (`ic_stat_reminder`) hanya dirujuk dari Dart sebagai nama resource, jadi tanpa
+  `android/app/src/main/res/raw/keep.xml` ikon itu dibuang dari APK dan
+  `flutter_local_notifications` gagal initialize — seluruh pengingat mati tanpa
+  pesan di UI.
+- Alarm memakai `inexactAllowWhileIdle`, sehingga tidak perlu izin exact alarm
+  dan pengiriman bisa bergeser beberapa menit. Jadwal dipasang ulang setiap app
+  dibuka: cache plugin masih mencatat alarm lama walau Android sudah membuangnya
+  setelah app di-update atau di-force stop.
