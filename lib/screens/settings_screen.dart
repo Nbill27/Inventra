@@ -43,6 +43,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Menampilkan notifikasi sekarang juga, supaya pengingat bisa diuji tanpa
+  /// menunggu slot 09.00/13.00/15.00.
+  Future<void> _sendTestNotification() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final gateway = context.read<NotificationGateway>();
+    try {
+      await gateway.showTest();
+      if (mounted) {
+        await _refreshPermission();
+      }
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Notifikasi uji dikirim.')),
+      );
+    } catch (error) {
+      // Berbeda dengan penjadwalan, kegagalan di sini harus terlihat: tombol
+      // ini justru dipakai untuk mencari tahu kenapa pengingat tidak muncul.
+      messenger.showSnackBar(
+        SnackBar(content: Text('Gagal mengirim notifikasi uji: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
@@ -100,6 +122,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: AppTheme.spaceXs),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _sendTestNotification,
+                      icon: const Icon(Icons.send_outlined, size: 18),
+                      label: const Text('Kirim notifikasi uji'),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -42,6 +42,9 @@ class FakeGateway implements NotificationGateway {
 
   @override
   Future<void> schedule(ReminderSlot slot) async => scheduled.add(slot);
+
+  @override
+  Future<void> showTest() async {}
 }
 
 void main() {

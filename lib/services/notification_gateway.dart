@@ -32,6 +32,13 @@ abstract class NotificationGateway {
 
   /// Menjadwalkan satu slot pengingat.
   Future<void> schedule(ReminderSlot slot);
+
+  /// Menampilkan satu notifikasi sekarang juga, tanpa menunggu slot.
+  ///
+  /// Dipakai tombol "Kirim notifikasi uji" di Pengaturan: kalau notifikasi ini
+  /// tampil, izin, ikon, dan channel sudah benar, sehingga kegagalan berikutnya
+  /// pasti ada di sisi jadwal, bukan di sisi tampilan.
+  Future<void> showTest();
 }
 
 class LocalNotificationGateway implements NotificationGateway {
@@ -52,6 +59,10 @@ class LocalNotificationGateway implements NotificationGateway {
   /// Semua notifikasi pengingat memakai payload ini, sehingga ketukan bisa
   /// diarahkan ke daftar peminjaman.
   static const payload = 'loan_reminder:list';
+
+  /// ID notifikasi uji. Jauh di bawah rentang pengingat terjadwal (1e9+), jadi
+  /// keduanya tidak pernah saling menimpa.
+  static const testNotificationId = 1;
 
   final FlutterLocalNotificationsPlugin _plugin;
 
@@ -121,7 +132,41 @@ class LocalNotificationGateway implements NotificationGateway {
       // Inexact: tidak butuh izin exact alarm, dan selisih beberapa menit
       // tidak berarti untuk pengingat harian.
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      notificationDetails: NotificationDetails(
+      notificationDetails: _details(
+        BigTextStyleInformation(
+          slot.detail,
+          contentTitle: slot.title,
+          summaryText: slot.summary,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<void> showTest() async {
+    await initialize();
+    const title = 'Pengingat pengembalian aktif';
+    await _plugin.show(
+      id: testNotificationId,
+      title: title,
+      body: 'Ini notifikasi uji, bukan pengingat sungguhan.',
+      payload: payload,
+      notificationDetails: _details(
+        const BigTextStyleInformation(
+          'Kalau notifikasi ini terlihat, izin, ikon, dan channel sudah '
+          'benar. Pengingat asli dikirim pukul 09.00, 13.00, dan 15.00 '
+          'setiap hari sampai barang ditandai dikembalikan.\n\n'
+          'Ketuk untuk membuka daftar',
+          contentTitle: title,
+        ),
+      ),
+    );
+  }
+
+  /// Tampilan notifikasi yang dipakai bersama oleh pengingat terjadwal dan
+  /// notifikasi uji, supaya keduanya tidak pernah berbeda channel atau ikon.
+  NotificationDetails _details(StyleInformation styleInformation) =>
+      NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
           channelName,
@@ -130,13 +175,7 @@ class LocalNotificationGateway implements NotificationGateway {
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.reminder,
-          styleInformation: BigTextStyleInformation(
-            slot.detail,
-            contentTitle: slot.title,
-            summaryText: slot.summary,
-          ),
+          styleInformation: styleInformation,
         ),
-      ),
-    );
-  }
+      );
 }
