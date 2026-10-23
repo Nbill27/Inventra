@@ -54,6 +54,11 @@ class DatabaseHelper {
   final String? _path;
   final SeedLoader _seedLoader;
 
+  /// Factory yang sama dengan yang dipakai database aktif. Dipakai untuk
+  /// memeriksa berkas backup sebelum ditukar, supaya pemeriksaan dan database
+  /// yang diganti selalu lewat jalur yang sama.
+  DatabaseFactory get factory => _factory;
+
   /// Full path of the database file, for the backup copy.
   Future<String> databasePath() async =>
       _path ?? p.join(await _factory.getDatabasesPath(), fileName);
