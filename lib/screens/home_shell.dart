@@ -43,9 +43,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<SettingsProvider>().maybeRunMonthlyBackup();
-        // Jadwal pengingat diperpanjang setiap app dibuka, sehingga horizon
-        // 90 hari tidak pernah benar-benar habis dalam pemakaian normal.
-        _reminders?.sync();
+        // Selalu dipasang ulang saat app dibuka, tanpa melewati pemeriksaan
+        // sidik jari. Cache plugin masih mencatat alarm lama walau Android
+        // sudah membuangnya — misalnya setelah app di-update atau di-force
+        // stop — sehingga pemeriksaan itu bisa menyimpulkan "tidak ada yang
+        // berubah" padahal sistem tidak memegang satu alarm pun.
+        _reminders?.sync(force: true);
       }
     });
   }
