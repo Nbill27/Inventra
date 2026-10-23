@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ikon status bar notifikasi dirujuk dari Dart lewat nama resource
+     ("ic_stat_reminder"), bukan dari XML atau Java. Sejak AGP 9 resource
+     shrinking aktif di build rilis, jadi tanpa berkas ini ikon dianggap tidak
+     terpakai dan dibuang — akibatnya flutter_local_notifications melempar
+     `invalid_icon` saat initialize dan seluruh jadwal pengingat gagal
+     dipasang. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_reminder" />
